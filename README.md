@@ -66,7 +66,6 @@ There is no surviving Python, FastAPI, Next.js, SQLite, or OpenAI application in
 
 All `/api/v1` routes require `x-api-key`, except:
 
-- `GET /api/v1/health`
 - `GET /api/v1/ready`
 
 Set the shared key with `INTERNAL_API_KEY` and send it in the request header:
@@ -74,6 +73,13 @@ Set the shared key with `INTERNAL_API_KEY` and send it in the request header:
 ```text
 x-api-key: your_internal_api_key
 ```
+
+Security requirements:
+
+- `INTERNAL_API_KEY` must be at least 32 characters long.
+- Use a long random secret, not a human-readable password.
+- Do not expose this key to browser clients or frontend code.
+- Rotate it if it is ever copied into logs, screenshots, or shared notes.
 
 ## Environment Variables
 
@@ -93,6 +99,7 @@ NODE_ENV=development
 Notes:
 
 - Keep live secrets in `.env` only. Do not commit them.
+- Use a long random value for `INTERNAL_API_KEY`; the app will refuse to boot with a short key.
 - Anthropic model selection is fixed inside `src/ai/client.ts`.
 - PostgreSQL is required. There is no SQLite fallback.
 - Anthropic-backed flows require a funded Anthropic account. If billing is not active, enrichment, draft generation, and reply classification will fail.
@@ -163,7 +170,7 @@ Web-only mode:
 5. Start the API and worker with `npm run dev`.
 6. Check:
    - `GET /api/v1/ready`
-   - `GET /api/v1/health`
+   - `GET /api/v1/health` with `x-api-key`
 
 Optional split-process mode:
 
@@ -240,3 +247,13 @@ npm run readiness:check
 ```
 
 These validate the application structure and non-mutating runtime behavior. Full AI validation still requires valid external credentials and funded Anthropic billing.
+
+## Security Posture
+
+- `x-powered-by` is disabled.
+- Security response headers are applied globally.
+- Mutating API requests must use JSON content types.
+- Sensitive operational routes are protected behind `x-api-key`.
+- Public readiness is limited to `/ready`.
+- Request bodies are size-limited.
+- Production error responses avoid leaking internal details.

@@ -29,6 +29,16 @@ Use the included `render.yaml` blueprint:
 
 `PORT` is required by the app runtime and is typically provided by the hosting platform for the web service.
 
+## Security Baseline
+
+- Use HTTPS only in production.
+- Set a long random `INTERNAL_API_KEY` with at least 32 characters.
+- Do not expose `INTERNAL_API_KEY` to browsers or client-side applications.
+- Rotate `INTERNAL_API_KEY` if it is ever leaked.
+- Store all secrets in the hosting platform secret manager, never in tracked files.
+- Treat `/api/v1/ready` as the only public probe.
+- Treat `/api/v1/health` and all business routes as authenticated internal endpoints.
+
 ## Migrations
 
 - Migrations run automatically on app startup from `src/db/migrations.ts`.

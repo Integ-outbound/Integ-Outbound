@@ -1,4 +1,5 @@
 .env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
@@ -50,3 +51,9 @@ tmp/
 temp/
 
 *.zip
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+.secrets/

@@ -59,3 +59,4 @@ x-api-key: your_internal_api_key
 ```
 
 Only `/health` and `/ready` are public.
+Only `/ready` is public. `/health` is protected because it contains operational counts.

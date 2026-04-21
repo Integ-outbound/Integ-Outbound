@@ -22,14 +22,6 @@ const auditParamsSchema = z.object({
 });
 
 router.get(
-  '/health',
-  asyncHandler(async (_req, res) => {
-    const health = await getSystemHealth();
-    res.status(200).json(health);
-  })
-);
-
-router.get(
   '/ready',
   asyncHandler(async (_req, res) => {
     try {
@@ -45,6 +37,14 @@ router.get(
 );
 
 router.use(requireInternalApiKey);
+
+router.get(
+  '/health',
+  asyncHandler(async (_req, res) => {
+    const health = await getSystemHealth();
+    res.status(200).json(health);
+  })
+);
 
 router.get(
   '/audit/:entityType/:entityId',

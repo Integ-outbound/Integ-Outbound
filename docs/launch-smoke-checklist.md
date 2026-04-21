@@ -14,8 +14,8 @@ Use this checklist in local or staging before launch.
 
 ## Auth
 
-- Public `GET /health` works without `x-api-key`
 - Public `GET /ready` works without `x-api-key`
+- Protected `GET /health` returns `401` without `x-api-key`
 - Protected route returns `401` with no key
 - Protected route returns `401` with wrong key
 - Protected route returns `200` with correct key

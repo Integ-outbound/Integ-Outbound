@@ -13,9 +13,17 @@ const checks = [
     expectedStatus: 200
   },
   {
-    name: 'public health',
+    name: 'unauthenticated health rejected',
     url: `${baseUrl}/health`,
-    expectedStatus: 200
+    expectedStatus: 401
+  },
+  {
+    name: 'protected health with correct key',
+    url: `${baseUrl}/health`,
+    expectedStatus: 200,
+    headers: {
+      'x-api-key': apiKey
+    }
   },
   {
     name: 'protected campaigns without key',
