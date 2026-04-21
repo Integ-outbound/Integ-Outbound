@@ -4,6 +4,7 @@ import { DbClient, ensureFound, generateId, query, withTransaction } from '../..
 import { Campaign, Company, Contact, Draft, Lead } from '../../db/types';
 import { HttpError } from '../../api/utils';
 import { logEvent } from '../observability/service';
+import { BatchJobSummary, finalizeBatchJob } from '../shared/batch';
 
 const DEFAULT_PROMPT_VERSION = 'drafts-v1';
 
@@ -241,7 +242,7 @@ export async function generateDraft(leadId: string, triggeredBy = 'operator'): P
 export async function generateBatchDrafts(
   campaignId: string,
   triggeredBy = 'system'
-): Promise<{ generated: number }> {
+): Promise<BatchJobSummary> {
   const result = await query<{ id: string }>(
     `
       SELECT l.id
@@ -258,20 +259,46 @@ export async function generateBatchDrafts(
     [campaignId]
   );
 
-  let generated = 0;
+  const summary: BatchJobSummary = {
+    attempted: result.rows.length,
+    succeeded: 0,
+    failed: 0,
+    failures: []
+  };
+
   for (const row of result.rows) {
     try {
       await generateDraft(row.id, triggeredBy);
-      generated += 1;
+      summary.succeeded += 1;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      summary.failed += 1;
+      summary.failures.push({
+        itemType: 'lead',
+        itemId: row.id,
+        message
+      });
+
       console.error('Draft generation failed', {
         leadId: row.id,
-        message: error instanceof Error ? error.message : String(error)
+        message
+      });
+
+      await logEvent({
+        eventType: 'draft.generation_failed',
+        entityType: 'lead',
+        entityId: row.id,
+        payload: {
+          campaign_id: campaignId,
+          error: message,
+          batch: true
+        },
+        triggeredBy
       });
     }
   }
 
-  return { generated };
+  return finalizeBatchJob('generate-drafts', summary);
 }
 
 export async function getDraft(leadId: string): Promise<Draft | null> {

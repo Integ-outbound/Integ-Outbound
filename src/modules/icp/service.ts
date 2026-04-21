@@ -1,6 +1,7 @@
 import { DbClient, ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Company, IcpDefinition } from '../../db/types';
 import { logEvent } from '../observability/service';
+import { BatchJobSummary, finalizeBatchJob } from '../shared/batch';
 
 interface IcpFilters {
   industries?: string[];
@@ -143,7 +144,7 @@ export function scoreCompany(company: Company, icpDefinition: IcpDefinition): Co
   return { score, rationale };
 }
 
-export async function scoreAllUnscored(triggeredBy = 'system'): Promise<{ scored: number }> {
+export async function scoreAllUnscored(triggeredBy = 'system'): Promise<BatchJobSummary> {
   const icpDefinition = await getActiveICP();
   if (!icpDefinition) {
     throw new Error('No active ICP definition found.');
@@ -160,40 +161,71 @@ export async function scoreAllUnscored(triggeredBy = 'system'): Promise<{ scored
     `
   );
 
-  let scored = 0;
+  const summary: BatchJobSummary = {
+    attempted: companiesResult.rows.length,
+    succeeded: 0,
+    failed: 0,
+    failures: []
+  };
 
   for (const company of companiesResult.rows) {
-    const result = scoreCompany(company, icpDefinition);
-    await withTransaction(async (client) => {
-      await query(
-        `
-          UPDATE companies
-          SET icp_score = $2, icp_score_updated_at = NOW(), updated_at = NOW()
-          WHERE id = $1
-        `,
-        [company.id, result.score],
-        client
-      );
+    try {
+      const result = scoreCompany(company, icpDefinition);
+      await withTransaction(async (client) => {
+        await query(
+          `
+            UPDATE companies
+            SET icp_score = $2, icp_score_updated_at = NOW(), updated_at = NOW()
+            WHERE id = $1
+          `,
+          [company.id, result.score],
+          client
+        );
 
-      await logEvent(
-        {
-          eventType: 'company.icp_scored',
-          entityType: 'company',
-          entityId: company.id,
-          payload: {
-            icp_definition_id: icpDefinition.id,
-            score: result.score,
-            rationale: result.rationale
+        await logEvent(
+          {
+            eventType: 'company.icp_scored',
+            entityType: 'company',
+            entityId: company.id,
+            payload: {
+              icp_definition_id: icpDefinition.id,
+              score: result.score,
+              rationale: result.rationale
+            },
+            triggeredBy
           },
-          triggeredBy
+          client
+        );
+      });
+      summary.succeeded += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      summary.failed += 1;
+      summary.failures.push({
+        itemType: 'company',
+        itemId: company.id,
+        message
+      });
+
+      console.error('Company ICP scoring failed', {
+        companyId: company.id,
+        message
+      });
+
+      await logEvent({
+        eventType: 'company.icp_scoring_failed',
+        entityType: 'company',
+        entityId: company.id,
+        payload: {
+          icp_definition_id: icpDefinition.id,
+          error: message
         },
-        client
-      );
-    });
-    scored += 1;
+        triggeredBy
+      });
+    }
   }
 
-  return { scored };
+  return finalizeBatchJob('score-companies', summary);
 }
 
 export async function generateShortlist(limit: number, minScore: number): Promise<Company[]> {

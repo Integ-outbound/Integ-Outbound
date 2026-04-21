@@ -1,6 +1,7 @@
 import { DbClient, ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Contact } from '../../db/types';
 import { logEvent } from '../observability/service';
+import { BatchJobSummary, finalizeBatchJob } from '../shared/batch';
 
 export interface ContactInput {
   company_id: string;
@@ -287,18 +288,42 @@ export async function verifyContact(contactId: string, triggeredBy = 'operator')
   });
 }
 
-export async function verifyBatch(limit: number, triggeredBy = 'system'): Promise<{ processed: number }> {
+export async function verifyBatch(limit: number, triggeredBy = 'system'): Promise<BatchJobSummary> {
   const contacts = await getUnverifiedContacts(limit);
-  let processed = 0;
+  const summary: BatchJobSummary = {
+    attempted: contacts.length,
+    succeeded: 0,
+    failed: 0,
+    failures: []
+  };
 
   for (const [index, contact] of contacts.entries()) {
     try {
       await verifyContact(contact.id, triggeredBy);
-      processed += 1;
+      summary.succeeded += 1;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      summary.failed += 1;
+      summary.failures.push({
+        itemType: 'contact',
+        itemId: contact.id,
+        message
+      });
+
       console.error('Contact verification failed', {
         contactId: contact.id,
-        message: error instanceof Error ? error.message : String(error)
+        message
+      });
+
+      await logEvent({
+        eventType: 'contact.verification_failed',
+        entityType: 'contact',
+        entityId: contact.id,
+        payload: {
+          error: message,
+          batch: true
+        },
+        triggeredBy
       });
     }
 
@@ -307,5 +332,5 @@ export async function verifyBatch(limit: number, triggeredBy = 'system'): Promis
     }
   }
 
-  return { processed };
+  return finalizeBatchJob('verify-contacts', summary);
 }

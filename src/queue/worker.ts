@@ -10,6 +10,7 @@ import { enrichBatch } from '../modules/enrichment/service';
 import { scoreAllUnscored } from '../modules/icp/service';
 import { logEvent } from '../modules/observability/service';
 import { classifyReply } from '../modules/replies/service';
+import { BatchJobError } from '../modules/shared/batch';
 import { scheduleNextStep } from '../modules/sending/service';
 import {
   ClassifyReplyJobData,
@@ -97,10 +98,21 @@ async function registerHandler<T>(
       await handler(parsed.data);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const details =
+        error instanceof BatchJobError
+          ? {
+              attempted: error.summary.attempted,
+              succeeded: error.summary.succeeded,
+              failed: error.summary.failed,
+              failures: error.summary.failures.slice(0, 25)
+            }
+          : null;
+
       console.error('Queue job failed', {
         jobName,
         data: job.data,
-        message
+        message,
+        details
       });
 
       try {
@@ -111,7 +123,8 @@ async function registerHandler<T>(
           payload: {
             job_name: jobName,
             job_data: (job.data ?? null) as Record<string, unknown> | null,
-            error: message
+            error: message,
+            details
           },
           triggeredBy: 'system'
         });

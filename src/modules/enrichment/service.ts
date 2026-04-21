@@ -3,6 +3,7 @@ import { buildEnrichmentPrompt } from '../../ai/prompts';
 import { query, withTransaction } from '../../db/client';
 import { Company } from '../../db/types';
 import { logEvent } from '../observability/service';
+import { BatchJobSummary, finalizeBatchJob } from '../shared/batch';
 
 export interface EnrichmentPayload {
   recent_signals: Array<{ type: string; description: string; confidence: number }>;
@@ -63,7 +64,7 @@ export async function enrichCompany(companyId: string, triggeredBy = 'operator')
   return enrichment;
 }
 
-export async function enrichBatch(limit: number, triggeredBy = 'system'): Promise<{ enriched: number }> {
+export async function enrichBatch(limit: number, triggeredBy = 'system'): Promise<BatchJobSummary> {
   const result = await query<Company>(
     `
       SELECT *
@@ -76,21 +77,45 @@ export async function enrichBatch(limit: number, triggeredBy = 'system'): Promis
     [limit]
   );
 
-  let enriched = 0;
+  const summary: BatchJobSummary = {
+    attempted: result.rows.length,
+    succeeded: 0,
+    failed: 0,
+    failures: []
+  };
 
   for (const company of result.rows) {
     try {
       await enrichCompany(company.id, triggeredBy);
-      enriched += 1;
+      summary.succeeded += 1;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      summary.failed += 1;
+      summary.failures.push({
+        itemType: 'company',
+        itemId: company.id,
+        message
+      });
+
       console.error('Company enrichment failed', {
         companyId: company.id,
-        message: error instanceof Error ? error.message : String(error)
+        message
+      });
+
+      await logEvent({
+        eventType: 'company.enrichment_failed',
+        entityType: 'company',
+        entityId: company.id,
+        payload: {
+          error: message,
+          batch: true
+        },
+        triggeredBy
       });
     }
   }
 
-  return { enriched };
+  return finalizeBatchJob('enrich-batch', summary);
 }
 
 export async function getEnrichmentSummary(companyId: string): Promise<EnrichmentPayload | null> {
