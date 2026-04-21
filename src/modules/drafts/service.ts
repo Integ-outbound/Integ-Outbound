@@ -131,13 +131,17 @@ async function getDraftById(draftId: string, client?: DbClient): Promise<Draft> 
   return draft;
 }
 
-async function ensureSendReadyAllowed(leadId: string, client: DbClient, triggeredBy: string): Promise<void> {
+async function ensureSendReadyAllowed(
+  leadId: string,
+  client: DbClient,
+  triggeredBy: string
+): Promise<boolean> {
   const context = await getLeadContextByLeadId(leadId, client);
   const blocked =
     context.contact.opted_out || context.contact.bounced || context.company.suppressed;
 
   if (!blocked) {
-    return;
+    return true;
   }
 
   await query(
@@ -147,15 +151,16 @@ async function ensureSendReadyAllowed(leadId: string, client: DbClient, triggere
       WHERE id = $1
     `,
     [leadId],
-    client
-  );
+      client
+    );
 
   await logEvent(
     {
-      eventType: 'lead.send_ready_blocked',
+      eventType: 'lead.suppressed',
       entityType: 'lead',
       entityId: leadId,
       payload: {
+        source: 'send_ready_guard',
         contact_opted_out: context.contact.opted_out,
         contact_bounced: context.contact.bounced,
         company_suppressed: context.company.suppressed
@@ -165,7 +170,7 @@ async function ensureSendReadyAllowed(leadId: string, client: DbClient, triggere
     client
   );
 
-  throw new HttpError(409, 'Lead cannot enter send_ready because it is suppressed.');
+  return false;
 }
 
 export async function generateDraft(leadId: string, triggeredBy = 'operator'): Promise<Draft> {
@@ -317,9 +322,12 @@ export async function getDraft(leadId: string): Promise<Draft | null> {
 }
 
 export async function approveDraft(draftId: string, triggeredBy = 'operator'): Promise<Draft> {
-  return withTransaction(async (client) => {
+  const result = await withTransaction(async (client) => {
     const draft = await getDraftById(draftId, client);
-    await ensureSendReadyAllowed(draft.lead_id, client, triggeredBy);
+    const allowed = await ensureSendReadyAllowed(draft.lead_id, client, triggeredBy);
+    if (!allowed) {
+      return null;
+    }
 
     const result = await query<Draft>(
       `
@@ -366,6 +374,12 @@ export async function approveDraft(draftId: string, triggeredBy = 'operator'): P
 
     return ensureFound(result.rows[0], `Draft approval failed for ${draftId}.`);
   });
+
+  if (!result) {
+    throw new HttpError(409, 'Lead cannot enter send_ready because it is suppressed.');
+  }
+
+  return result;
 }
 
 export async function rejectDraft(
@@ -435,9 +449,12 @@ export async function editDraft(
   editedBody: string,
   triggeredBy = 'operator'
 ): Promise<Draft> {
-  return withTransaction(async (client) => {
+  const result = await withTransaction(async (client) => {
     const draft = await getDraftById(draftId, client);
-    await ensureSendReadyAllowed(draft.lead_id, client, triggeredBy);
+    const allowed = await ensureSendReadyAllowed(draft.lead_id, client, triggeredBy);
+    if (!allowed) {
+      return null;
+    }
 
     const result = await query<Draft>(
       `
@@ -496,4 +513,10 @@ export async function editDraft(
 
     return ensureFound(result.rows[0], `Draft edit failed for ${draftId}.`);
   });
+
+  if (!result) {
+    throw new HttpError(409, 'Lead cannot enter send_ready because it is suppressed.');
+  }
+
+  return result;
 }
