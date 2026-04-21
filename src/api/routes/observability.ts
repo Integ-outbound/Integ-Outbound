@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
+import { requireInternalApiKey } from '../auth';
 import { asyncHandler, parseWithSchema } from '../utils';
 import {
   getAuditTrail,
+  getReadiness,
   getSystemHealth
 } from '../../modules/observability/service';
+import { shouldStartWorker } from '../../runtime';
 
 const router = Router();
 
@@ -25,6 +28,23 @@ router.get(
     res.status(200).json(health);
   })
 );
+
+router.get(
+  '/ready',
+  asyncHandler(async (_req, res) => {
+    try {
+      const readiness = await getReadiness(shouldStartWorker());
+      res.status(200).json(readiness);
+    } catch (error) {
+      res.status(503).json({
+        ready: false,
+        message: error instanceof Error ? error.message : 'Service not ready'
+      });
+    }
+  })
+);
+
+router.use(requireInternalApiKey);
 
 router.get(
   '/audit/:entityType/:entityId',

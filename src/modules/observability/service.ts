@@ -1,4 +1,5 @@
 import { DbClient, generateId, query } from '../../db/client';
+import { isWorkerRunning } from '../../queue/worker';
 
 export interface SystemEventInput {
   eventType: string;
@@ -17,6 +18,12 @@ export interface SystemHealth {
   sendQueueDepth: number;
   lastEnrichmentRun: string | null;
   lastScoringRun: string | null;
+}
+
+export interface ReadinessStatus {
+  ready: boolean;
+  database: 'ok';
+  worker: 'ok' | 'disabled';
 }
 
 export async function logEvent(input: SystemEventInput, client?: DbClient): Promise<void> {
@@ -106,5 +113,19 @@ export async function getSystemHealth(): Promise<SystemHealth> {
     sendQueueDepth: Number(sendQueueResult.rows[0]?.count ?? 0),
     lastEnrichmentRun: lastEnrichmentResult.rows[0]?.last_enrichment_run ?? null,
     lastScoringRun: lastScoringResult.rows[0]?.last_scoring_run ?? null
+  };
+}
+
+export async function getReadiness(expectWorker: boolean): Promise<ReadinessStatus> {
+  await query('SELECT 1');
+
+  if (expectWorker && !isWorkerRunning()) {
+    throw new Error('Queue worker is not initialized.');
+  }
+
+  return {
+    ready: true,
+    database: 'ok',
+    worker: expectWorker ? 'ok' : 'disabled'
   };
 }

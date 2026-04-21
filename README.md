@@ -1,6 +1,6 @@
-# Internal Outbound Operations System
+# Internal Outbound Operations Backend
 
-This repository contains a single Node.js + TypeScript backend for running internal B2B outbound workflows. It is a pipeline with AI assistance at specific nodes, not a chatbot, not an autonomous closer, and not a multi-stack monorepo.
+This repository contains a single Node.js + TypeScript backend for running an internal B2B outbound operations pipeline. It is a workflow engine with AI assistance at specific nodes, not a chatbot and not a direct email sender.
 
 ## Source Of Truth
 
@@ -27,51 +27,66 @@ There is no surviving Python, FastAPI, Next.js, SQLite, or OpenAI application in
 - Queue: pg-boss
 - Validation: zod
 - Environment: dotenv
+- Deployment target: Render
 
 ## What The System Does
 
-- Manages a persistent company universe.
+- Stores and manages the company universe.
 - Scores companies against an active ICP and generates shortlists.
-- Stores and verifies contacts.
-- Enriches target companies with AI-generated structured research.
-- Generates cold outbound drafts with Anthropic Haiku.
-- Supports human review, approval, rejection, and editing.
-- Tracks send-ready, sent, bounced, replied, and suppressed lead state.
-- Classifies inbound replies and routes them for auto-handling or human review.
-- Logs outcomes and operator feedback.
-- Maintains an audit trail and health metrics through `system_events`.
+- Stores, verifies, and suppresses contacts.
+- Enriches companies with structured Anthropic-backed research.
+- Generates outbound drafts and routes them into review.
+- Tracks campaigns, leads, send-ready state, sent state, replies, and outcomes.
+- Maintains an audit trail in `system_events`.
+- Exposes health and readiness endpoints for operations.
 
-## What Is Implemented Now
+## Implemented Modules
 
-- `universe`: company upsert, import, filtering, suppression
-- `icp`: active ICP management, deterministic scoring, shortlist generation, background rescoring
-- `contacts`: contact upsert, company contact listing, opt-out, bounce handling, verification, batch verification
-- `enrichment`: Haiku-based enrichment, batch enrichment, enrichment summaries
-- `drafts`: Haiku-based draft generation, batch generation, approval, rejection, edit flows
-- `review`: review queue, review stats, bulk rejection
-- `sending`: send-ready queue, mark-sent, mark-bounced, next-step scheduling, daily stats
-- `replies`: ingest, classify, route, unhandled queue, mark-handled
-- `memory`: outcome logging and reporting
-- `observability`: health checks, audit trail, event logging
-- `queue`: pg-boss worker and the required background job handlers
+- `universe`
+- `icp`
+- `contacts`
+- `enrichment`
+- `drafts`
+- `review`
+- `sending`
+- `replies`
+- `memory`
+- `observability`
+- `campaigns`
+- `leads`
 
 ## What Is Intentionally Not Implemented Yet
 
 - Direct email delivery. The system tracks queue and send state only.
-- Authentication and user management. `triggered_by` uses `operator` or `system`.
-- Automated tests. Validation is currently by typecheck, build, and live startup checks.
-- A built-in outbound contact discovery provider. Contacts can be ingested and then verified, but discovery-provider integration is not part of the current implementation.
+- Per-user auth and user management. The current auth model is a shared internal API key.
+- Automated tests. Validation is currently by typecheck, build, startup, and manual smoke checks.
+- A built-in contact discovery provider. Contacts can be ingested and verified, but provider-backed discovery is not part of the current implementation.
+
+## Authentication
+
+All `/api/v1` routes require `x-api-key`, except:
+
+- `GET /api/v1/health`
+- `GET /api/v1/ready`
+
+Set the shared key with `INTERNAL_API_KEY` and send it in the request header:
+
+```text
+x-api-key: your_internal_api_key
+```
 
 ## Environment Variables
 
 Copy `.env.example` to `.env` and fill in real values locally.
 
 ```env
-DATABASE_URL=postgresql://user:password@localhost:5432/integ
+DATABASE_URL=postgresql://user:password@127.0.0.1:5432/integ
 ANTHROPIC_API_KEY=
 PORT=3000
 VERIFICATION_PROVIDER=millionverifier
 VERIFICATION_API_KEY=
+INTERNAL_API_KEY=
+START_WORKER=true
 NODE_ENV=development
 ```
 
@@ -80,13 +95,16 @@ Notes:
 - Keep live secrets in `.env` only. Do not commit them.
 - Anthropic model selection is fixed inside `src/ai/client.ts`.
 - PostgreSQL is required. There is no SQLite fallback.
+- Anthropic-backed flows require a funded Anthropic account. If billing is not active, enrichment, draft generation, and reply classification will fail.
+- For a dedicated web process on Render, set `START_WORKER=false`.
 
 ## Local Setup
 
 1. Install Node.js 20+ and PostgreSQL.
-2. Create a PostgreSQL database named `integ` or update `DATABASE_URL` to point at your database.
+2. Create a PostgreSQL database named `integ`, or point `DATABASE_URL` at a different database.
 3. Copy `.env.example` to `.env`.
-4. Install dependencies:
+4. Set a value for `INTERNAL_API_KEY`.
+5. Install dependencies:
 
 ```powershell
 npm install
@@ -101,95 +119,124 @@ Schema creation is handled by `src/db/migrations.ts`, which runs the SQL in `src
 
 ## How To Start The API
 
-For local development, this is the normal entrypoint:
+Local development:
 
 ```powershell
 npm run dev
 ```
 
-For compiled production-style startup:
+Compiled production-style startup:
 
 ```powershell
 npm run build
 npm start
 ```
 
-API base path:
+Base path:
 
 - `http://localhost:3000/api/v1`
 
 ## How To Start The Worker
 
-The API entrypoint starts the pg-boss worker automatically.
+Local combined mode:
 
-If you want to run the queue worker as a dedicated process, use:
+- `npm run dev` starts the API and the worker together when `START_WORKER=true`.
+
+Dedicated worker mode:
 
 ```powershell
 npm run worker
 ```
 
-Both modes use the same `src/queue/worker.ts` implementation.
+Web-only mode:
+
+- set `START_WORKER=false`
+- start the API with `npm run dev` or `npm start`
+- run `npm run worker` separately
 
 ## Local Run Sequence
 
 1. Start PostgreSQL.
-2. Copy `.env.example` to `.env` and set `DATABASE_URL`, `ANTHROPIC_API_KEY`, and `VERIFICATION_API_KEY`.
-3. Install dependencies with `npm install`.
-4. Start the combined local process with `npm run dev`.
-5. Hit `GET /api/v1/health` to confirm database and queue boot completed.
+2. Copy `.env.example` to `.env`.
+3. Set `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VERIFICATION_API_KEY`, and `INTERNAL_API_KEY`.
+4. Install dependencies with `npm install`.
+5. Start the API and worker with `npm run dev`.
+6. Check:
+   - `GET /api/v1/ready`
+   - `GET /api/v1/health`
 
 Optional split-process mode:
 
-1. Run `npm run build`.
-2. Start the API with `npm start`.
-3. Start the worker separately with `npm run worker`.
+1. Set `START_WORKER=false` for the API process.
+2. Run `npm run build`.
+3. Start the API with `npm start`.
+4. Start the worker with `npm run worker`.
 
-## Module Overview
+## Minimal Operator API Surface
 
-- `src/db`
-  PostgreSQL pool, transaction helper, schema SQL, and startup migrations.
-- `src/ai`
-  Anthropic client wrapper, JSON parsing helpers, and centralized prompts.
-- `src/modules/universe`
-  Company universe lifecycle and suppression.
-- `src/modules/icp`
-  ICP definition versioning, scoring, and shortlist selection.
-- `src/modules/contacts`
-  Contact ingestion, verification, opt-out, and bounce state.
-- `src/modules/enrichment`
-  Company-level structured enrichment using Anthropic Haiku.
-- `src/modules/drafts`
-  Draft generation, review-state transitions, and send-ready gating.
-- `src/modules/review`
-  Pending review queue and review analytics.
-- `src/modules/sending`
-  Send-ready queue state, mark-sent, mark-bounced, and sequence progression.
-- `src/modules/replies`
-  Reply ingestion, classification, routing, and human review queue.
-- `src/modules/memory`
-  Outcomes, rejection analytics, and campaign performance reporting.
-- `src/modules/observability`
-  `system_events`, health reporting, and audit trail queries.
-- `src/queue`
-  pg-boss job definitions and worker registration.
-- `src/api`
-  Express router, route handlers, zod validation, and shared HTTP helpers.
+Existing operational routes cover companies, ICP, contacts, enrichment, drafts, review, sending, replies, memory, and observability.
 
-## Operational Constraints Enforced In Code
+Additional operator-facing routes:
 
-- All AI calls go through `src/ai/client.ts`.
-- Anthropic Haiku model selection is centralized in one file.
-- All SQL is parameterized raw SQL.
-- Database writes are audit-backed through `system_events`.
-- Suppression, opt-out, and bounce checks block transitions into `send_ready`.
-- IDs are generated with `crypto.randomUUID()`.
-- Timestamps are stored in PostgreSQL and returned as ISO 8601 strings.
+- `POST /api/v1/campaigns`
+- `GET /api/v1/campaigns`
+- `GET /api/v1/campaigns/:id`
+- `PATCH /api/v1/campaigns/:id`
+- `POST /api/v1/leads`
+- `GET /api/v1/leads`
+- `GET /api/v1/leads/:id`
+- `POST /api/v1/leads/:id/reject`
+- `POST /api/v1/leads/:id/suppress`
+- `POST /api/v1/leads/:id/reschedule`
+- `GET /api/v1/health`
+- `GET /api/v1/ready`
+
+## Deployment Model
+
+The repository includes `render.yaml` for a Render deployment with:
+
+- one managed PostgreSQL instance
+- one web service for the API
+- one worker service for pg-boss jobs
+
+Web service:
+
+- build: `npm install && npm run build`
+- start: `npm start`
+- env: `START_WORKER=false`
+
+Worker service:
+
+- build: `npm install && npm run build`
+- start: `npm run worker`
+
+## Operations And Runbooks
+
+- Operator flow: [docs/operator-runbook.md](docs/operator-runbook.md)
+- Production operations: [docs/production-ops.md](docs/production-ops.md)
+- Launch checklist: [docs/launch-smoke-checklist.md](docs/launch-smoke-checklist.md)
+
+## Readiness Script
+
+A non-mutating readiness checker is included:
+
+```powershell
+npm run readiness:check
+```
+
+It validates:
+
+- `/ready`
+- `/health`
+- auth gate behavior
+- route availability for protected non-mutating endpoints
 
 ## Validation Commands
 
 ```powershell
 npm run typecheck
 npm run build
+npm run readiness:check
 ```
 
-These validate the TypeScript application structure. Live runtime validation still requires a real PostgreSQL instance and valid external API credentials.
+These validate the application structure and non-mutating runtime behavior. Full AI validation still requires valid external credentials and funded Anthropic billing.

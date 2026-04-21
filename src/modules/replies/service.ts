@@ -91,12 +91,33 @@ export async function ingestReply(
     return ensureFound(result.rows[0], 'Reply insert failed.');
   });
 
-  const [{ JOB_NAMES }, { getQueue }] = await Promise.all([
-    import('../../queue/jobs'),
-    import('../../queue/worker')
-  ]);
+  try {
+    const [{ JOB_NAMES }, { getQueue }] = await Promise.all([
+      import('../../queue/jobs'),
+      import('../../queue/worker')
+    ]);
 
-  await getQueue().send(JOB_NAMES.CLASSIFY_REPLY, { replyId: reply.id });
+    await getQueue().send(JOB_NAMES.CLASSIFY_REPLY, { replyId: reply.id });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Reply classification enqueue failed', {
+      replyId: reply.id,
+      sentMessageId: sentMessage.id,
+      message
+    });
+
+    await logEvent({
+      eventType: 'reply.classify_enqueue_failed',
+      entityType: 'reply',
+      entityId: reply.id,
+      payload: {
+        sent_message_id: sentMessage.id,
+        error: message
+      },
+      triggeredBy
+    });
+  }
+
   return reply;
 }
 
