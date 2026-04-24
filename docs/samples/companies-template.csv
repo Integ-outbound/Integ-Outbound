@@ -1,0 +1,2 @@
+domain,source_record_id,name,industry,employee_count,country,city,website,linkedin_url,suppressed,suppression_reason
+acme-example.com,company-001,Acme Example,SaaS,120,United States,Austin,https://acme-example.com,https://www.linkedin.com/company/acme-example,false,

@@ -36,10 +36,9 @@ router.get(
   })
 );
 
-router.use(requireInternalApiKey);
-
 router.get(
   '/health',
+  requireInternalApiKey,
   asyncHandler(async (_req, res) => {
     const health = await getSystemHealth();
     res.status(200).json(health);
@@ -48,6 +47,7 @@ router.get(
 
 router.get(
   '/audit/:entityType/:entityId',
+  requireInternalApiKey,
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(auditParamsSchema, req.params, 'Invalid audit params.');
     const query = parseWithSchema(auditQuerySchema, req.query, 'Invalid audit query.');

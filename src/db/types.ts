@@ -13,6 +13,7 @@ export interface Company {
   outreach_status: 'never_contacted' | 'in_sequence' | 'replied' | 'suppressed' | 'pipeline';
   suppressed: boolean;
   suppression_reason: string | null;
+  last_seen_at: string | null;
   enriched_at: string | null;
   raw_enrichment: Record<string, unknown> | null;
   created_at: string;
@@ -36,6 +37,7 @@ export interface Contact {
   opted_out_at: string | null;
   bounced: boolean;
   bounced_at: string | null;
+  last_seen_at: string | null;
   source: string | null;
   created_at: string;
   updated_at: string;
@@ -157,5 +159,77 @@ export interface IcpDefinition {
   active: boolean;
   filters: Record<string, unknown>;
   scoring_weights: Record<string, number>;
+  created_at: string;
+}
+
+export interface ImportBatch {
+  id: string;
+  entity_type: 'company' | 'contact';
+  source_type: string;
+  source_name: string;
+  started_at: string;
+  completed_at: string | null;
+  status: 'running' | 'completed' | 'failed' | 'partial';
+  total_rows: number;
+  inserted_rows: number;
+  updated_rows: number;
+  skipped_rows: number;
+  error_rows: number;
+  dry_run: boolean;
+  notes: string | null;
+  error_summary: unknown;
+  created_at: string;
+}
+
+export interface Mailbox {
+  id: string;
+  provider: 'google';
+  email: string;
+  display_name: string | null;
+  gmail_history_id: string | null;
+  messages_total: number | null;
+  threads_total: number | null;
+  last_connected_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MailboxOauthToken {
+  id: string;
+  mailbox_id: string;
+  provider: 'google';
+  refresh_token_encrypted: string;
+  scope: string | null;
+  token_type: string | null;
+  expiry_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanySource {
+  id: string;
+  company_id: string;
+  source_type: string;
+  source_name: string;
+  source_record_id: string;
+  source_batch_id: string;
+  first_seen_at: string;
+  last_seen_at: string;
+  last_imported_at: string;
+  raw_payload: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface ContactSource {
+  id: string;
+  contact_id: string;
+  source_type: string;
+  source_name: string;
+  source_record_id: string;
+  source_batch_id: string;
+  first_seen_at: string;
+  last_seen_at: string;
+  last_imported_at: string;
+  raw_payload: Record<string, unknown> | null;
   created_at: string;
 }

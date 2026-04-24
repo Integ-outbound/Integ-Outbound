@@ -1,0 +1,4 @@
+domain,source_record_id,name,industry,employee_count,country,city,website,linkedin_url,suppressed,suppression_reason
+https://www.acme-example.com/path?utm=demo#frag,crm-001,Acme Example,SaaS,120,United States,Austin,https://acme-example.com,https://www.linkedin.com/company/acme-example,false,
+beta-example.co,crm-002,Beta Example,Marketing Agency,42,United Kingdom,London,https://beta-example.co,https://www.linkedin.com/company/beta-example,false,
+gamma-example.io,crm-003,Gamma Example,Consulting,18,Canada,Toronto,https://gamma-example.io,https://www.linkedin.com/company/gamma-example,true,manual suppression from prior pipeline

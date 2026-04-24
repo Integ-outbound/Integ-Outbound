@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS companies (
   ),
   suppressed boolean NOT NULL DEFAULT false,
   suppression_reason text,
+  last_seen_at timestamptz,
   enriched_at timestamptz,
   raw_enrichment jsonb,
   created_at timestamptz NOT NULL DEFAULT NOW(),
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS contacts (
   opted_out_at timestamptz,
   bounced boolean NOT NULL DEFAULT false,
   bounced_at timestamptz,
+  last_seen_at timestamptz,
   source text,
   created_at timestamptz NOT NULL DEFAULT NOW(),
   updated_at timestamptz NOT NULL DEFAULT NOW()
@@ -207,13 +209,111 @@ CREATE TABLE IF NOT EXISTS system_events (
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS import_batches (
+  id uuid PRIMARY KEY,
+  entity_type text NOT NULL CHECK (entity_type IN ('company', 'contact')),
+  source_type text NOT NULL,
+  source_name text NOT NULL,
+  started_at timestamptz NOT NULL DEFAULT NOW(),
+  completed_at timestamptz,
+  status text NOT NULL CHECK (status IN ('running', 'completed', 'failed', 'partial')),
+  total_rows integer NOT NULL DEFAULT 0 CHECK (total_rows >= 0),
+  inserted_rows integer NOT NULL DEFAULT 0 CHECK (inserted_rows >= 0),
+  updated_rows integer NOT NULL DEFAULT 0 CHECK (updated_rows >= 0),
+  skipped_rows integer NOT NULL DEFAULT 0 CHECK (skipped_rows >= 0),
+  error_rows integer NOT NULL DEFAULT 0 CHECK (error_rows >= 0),
+  dry_run boolean NOT NULL DEFAULT false,
+  notes text,
+  error_summary jsonb,
+  created_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS mailboxes (
+  id uuid PRIMARY KEY,
+  provider text NOT NULL CHECK (provider IN ('google')),
+  email text NOT NULL,
+  display_name text,
+  gmail_history_id text,
+  messages_total integer,
+  threads_total integer,
+  last_connected_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW(),
+  UNIQUE (provider, email)
+);
+
+CREATE TABLE IF NOT EXISTS mailbox_oauth_tokens (
+  id uuid PRIMARY KEY,
+  mailbox_id uuid NOT NULL UNIQUE REFERENCES mailboxes(id) ON DELETE CASCADE,
+  provider text NOT NULL CHECK (provider IN ('google')),
+  refresh_token_encrypted text NOT NULL,
+  scope text,
+  token_type text,
+  expiry_date timestamptz,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS company_sources (
+  id uuid PRIMARY KEY,
+  company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  source_type text NOT NULL,
+  source_name text NOT NULL,
+  source_record_id text NOT NULL,
+  source_batch_id uuid NOT NULL REFERENCES import_batches(id),
+  first_seen_at timestamptz NOT NULL DEFAULT NOW(),
+  last_seen_at timestamptz NOT NULL DEFAULT NOW(),
+  last_imported_at timestamptz NOT NULL DEFAULT NOW(),
+  raw_payload jsonb,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  UNIQUE (company_id, source_type, source_name, source_record_id)
+);
+
+CREATE TABLE IF NOT EXISTS contact_sources (
+  id uuid PRIMARY KEY,
+  contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+  source_type text NOT NULL,
+  source_name text NOT NULL,
+  source_record_id text NOT NULL,
+  source_batch_id uuid NOT NULL REFERENCES import_batches(id),
+  first_seen_at timestamptz NOT NULL DEFAULT NOW(),
+  last_seen_at timestamptz NOT NULL DEFAULT NOW(),
+  last_imported_at timestamptz NOT NULL DEFAULT NOW(),
+  raw_payload jsonb,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  UNIQUE (contact_id, source_type, source_name, source_record_id)
+);
+
+ALTER TABLE companies
+  ADD COLUMN IF NOT EXISTS last_seen_at timestamptz;
+
+ALTER TABLE contacts
+  ADD COLUMN IF NOT EXISTS last_seen_at timestamptz;
+
 CREATE INDEX IF NOT EXISTS idx_companies_domain ON companies(domain);
+CREATE INDEX IF NOT EXISTS idx_companies_industry ON companies(industry);
+CREATE INDEX IF NOT EXISTS idx_companies_country ON companies(country);
+CREATE INDEX IF NOT EXISTS idx_companies_employee_count ON companies(employee_count);
+CREATE INDEX IF NOT EXISTS idx_companies_suppressed ON companies(suppressed);
+CREATE INDEX IF NOT EXISTS idx_companies_last_seen_at ON companies(last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
+CREATE INDEX IF NOT EXISTS idx_contacts_company_id ON contacts(company_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_verification_status ON contacts(verification_status);
+CREATE INDEX IF NOT EXISTS idx_contacts_seniority ON contacts(seniority);
+CREATE INDEX IF NOT EXISTS idx_contacts_title ON contacts(title);
+CREATE INDEX IF NOT EXISTS idx_contacts_opted_out ON contacts(opted_out);
+CREATE INDEX IF NOT EXISTS idx_contacts_bounced ON contacts(bounced);
+CREATE INDEX IF NOT EXISTS idx_contacts_last_seen_at ON contacts(last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_leads_campaign_id ON leads(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_replies_classification ON replies(classification);
 CREATE INDEX IF NOT EXISTS idx_sent_messages_sent_at ON sent_messages(sent_at);
 CREATE INDEX IF NOT EXISTS idx_outcomes_outcome_type ON outcomes(outcome_type);
+CREATE INDEX IF NOT EXISTS idx_import_batches_status_started_at ON import_batches(status, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_company_sources_source_batch_id ON company_sources(source_batch_id);
+CREATE INDEX IF NOT EXISTS idx_contact_sources_source_batch_id ON contact_sources(source_batch_id);
+CREATE INDEX IF NOT EXISTS idx_mailboxes_provider_email ON mailboxes(provider, email);
+CREATE INDEX IF NOT EXISTS idx_mailbox_oauth_tokens_mailbox_id ON mailbox_oauth_tokens(mailbox_id);
 
 DO $$
 BEGIN
@@ -241,6 +341,20 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'leads_set_updated_at') THEN
     CREATE TRIGGER leads_set_updated_at
     BEFORE UPDATE ON leads
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'mailboxes_set_updated_at') THEN
+    CREATE TRIGGER mailboxes_set_updated_at
+    BEFORE UPDATE ON mailboxes
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'mailbox_oauth_tokens_set_updated_at') THEN
+    CREATE TRIGGER mailbox_oauth_tokens_set_updated_at
+    BEFORE UPDATE ON mailbox_oauth_tokens
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
   END IF;

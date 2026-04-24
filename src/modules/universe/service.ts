@@ -1,6 +1,8 @@
+import { HttpError } from '../../api/utils';
 import { DbClient, ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Company } from '../../db/types';
 import { logEvent } from '../observability/service';
+import { NormalizationError, normalizeDomain } from '../shared/normalization';
 
 export interface CompanyInput {
   domain: string;
@@ -35,11 +37,24 @@ interface UpsertCompanyResult extends Company {
   inserted: boolean;
 }
 
+function requireNormalizedDomain(domain: string): string {
+  try {
+    return normalizeDomain(domain);
+  } catch (error) {
+    if (error instanceof NormalizationError) {
+      throw new HttpError(400, error.message);
+    }
+
+    throw error;
+  }
+}
+
 async function upsertCompanyInTransaction(
   data: CompanyInput,
   triggeredBy: string,
   client: DbClient
 ): Promise<UpsertCompanyResult> {
+  const normalizedDomain = requireNormalizedDomain(data.domain);
   const result = await query<UpsertCompanyResult>(
     `
       INSERT INTO companies (
@@ -55,9 +70,10 @@ async function upsertCompanyInTransaction(
         outreach_status,
         suppressed,
         suppression_reason,
-        raw_enrichment
+        raw_enrichment,
+        last_seen_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, 'never_contacted'), COALESCE($11, false), $12, $13::jsonb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, 'never_contacted'), COALESCE($11, false), $12, $13::jsonb, NOW())
       ON CONFLICT (domain)
       DO UPDATE SET
         name = EXCLUDED.name,
@@ -71,12 +87,13 @@ async function upsertCompanyInTransaction(
         suppressed = EXCLUDED.suppressed,
         suppression_reason = EXCLUDED.suppression_reason,
         raw_enrichment = COALESCE(EXCLUDED.raw_enrichment, companies.raw_enrichment),
+        last_seen_at = NOW(),
         updated_at = NOW()
       RETURNING companies.*, (xmax = 0) AS inserted
     `,
     [
       generateId(),
-      data.domain.toLowerCase(),
+      normalizedDomain,
       data.name ?? null,
       data.industry ?? null,
       data.employee_count ?? null,
@@ -113,9 +130,10 @@ export async function upsertCompany(data: CompanyInput, triggeredBy = 'operator'
 }
 
 export async function getCompany(domain: string): Promise<Company | null> {
+  const normalizedDomain = requireNormalizedDomain(domain);
   const result = await query<Company>(
     'SELECT * FROM companies WHERE domain = $1',
-    [domain.toLowerCase()]
+    [normalizedDomain]
   );
 
   return result.rows[0] ?? null;

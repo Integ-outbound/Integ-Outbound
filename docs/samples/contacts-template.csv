@@ -1,0 +1,2 @@
+email,company_id,company_domain,source_record_id,first_name,last_name,title,seniority,department,linkedin_url,verification_status
+alex@acme-example.com,,acme-example.com,contact-001,Alex,Morgan,VP Sales,,Sales,https://www.linkedin.com/in/alex-morgan-example,unverified

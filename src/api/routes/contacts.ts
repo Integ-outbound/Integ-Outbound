@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { asyncHandler, parseWithSchema } from '../utils';
 import {
   getContactsForCompany,
+  listContacts,
   markOptOut,
   upsertContact,
   verifyContact
@@ -15,7 +16,7 @@ const router = Router();
 
 const contactBodySchema = z.object({
   company_id: z.string().uuid(),
-  email: z.string().email(),
+  email: z.string().trim().min(1),
   first_name: z.string().trim().min(1).nullable().optional(),
   last_name: z.string().trim().min(1).nullable().optional(),
   title: z.string().trim().min(1).nullable().optional(),
@@ -23,6 +24,17 @@ const contactBodySchema = z.object({
   department: z.string().trim().min(1).nullable().optional(),
   linkedin_url: z.string().trim().min(1).nullable().optional(),
   source: z.string().trim().min(1).nullable().optional()
+});
+
+const contactQuerySchema = z.object({
+  company_id: z.string().uuid().optional(),
+  verification_status: z.enum(['unverified', 'valid', 'risky', 'invalid', 'catch_all']).optional(),
+  seniority: z.enum(['c_level', 'vp', 'director', 'manager', 'ic']).optional(),
+  title: z.string().trim().min(1).optional(),
+  suppressed: z
+    .union([z.literal('true'), z.literal('false')])
+    .transform((value) => value === 'true')
+    .optional()
 });
 
 const emptyBodySchema = z.object({});
@@ -45,6 +57,15 @@ router.post(
     const body = parseWithSchema(contactBodySchema, req.body, 'Invalid contact payload.');
     const contact = await upsertContact(body);
     res.status(200).json(contact);
+  })
+);
+
+router.get(
+  '/contacts',
+  asyncHandler(async (req, res) => {
+    const query = parseWithSchema(contactQuerySchema, req.query, 'Invalid contact query.');
+    const contacts = await listContacts(query);
+    res.status(200).json(contacts);
   })
 );
 

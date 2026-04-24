@@ -6,7 +6,9 @@ import contactsRouter from './routes/contacts';
 import draftsRouter from './routes/drafts';
 import enrichmentRouter from './routes/enrichment';
 import icpRouter from './routes/icp';
+import importsRouter from './routes/imports';
 import leadsRouter from './routes/leads';
+import mailboxesRouter, { publicMailboxesRouter } from './routes/mailboxes';
 import memoryRouter from './routes/memory';
 import observabilityRouter from './routes/observability';
 import repliesRouter from './routes/replies';
@@ -17,10 +19,13 @@ import universeRouter from './routes/universe';
 const router = Router();
 
 router.use(observabilityRouter);
+router.use(publicMailboxesRouter);
 router.use(requireInternalApiKey);
 
+router.use(mailboxesRouter);
 router.use(campaignsRouter);
 router.use(leadsRouter);
+router.use(importsRouter);
 router.use(universeRouter);
 router.use(icpRouter);
 router.use(contactsRouter);

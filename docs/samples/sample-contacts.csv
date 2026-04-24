@@ -1,0 +1,4 @@
+email,company_id,company_domain,source_record_id,first_name,last_name,title,seniority,department,linkedin_url,verification_status
+Alex@Acme-Example.com,,acme-example.com,crm-contact-001,Alex,Morgan,VP Sales,,Sales,https://www.linkedin.com/in/alex-morgan-example,unverified
+jamie@beta-example.co,,beta-example.co,crm-contact-002,Jamie,Lee,Director of Growth,,Marketing,https://www.linkedin.com/in/jamie-lee-example,valid
+casey@gamma-example.io,,gamma-example.io,crm-contact-003,Casey,Patel,Operations Manager,,Operations,https://www.linkedin.com/in/casey-patel-example,risky

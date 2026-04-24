@@ -1,7 +1,13 @@
+import { HttpError } from '../../api/utils';
 import { DbClient, ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Contact } from '../../db/types';
 import { logEvent } from '../observability/service';
 import { BatchJobSummary, finalizeBatchJob } from '../shared/batch';
+import {
+  NormalizationError,
+  normalizeEmail,
+  normalizeSeniority
+} from '../shared/normalization';
 
 export interface ContactInput {
   company_id: string;
@@ -13,6 +19,14 @@ export interface ContactInput {
   department?: string | null;
   linkedin_url?: string | null;
   source?: string | null;
+}
+
+export interface ContactFilters {
+  company_id?: string;
+  verification_status?: Contact['verification_status'];
+  seniority?: NonNullable<Contact['seniority']>;
+  title?: string;
+  suppressed?: boolean;
 }
 
 interface VerificationResponse {
@@ -49,6 +63,18 @@ function mapVerificationStatus(response: VerificationResponse): Contact['verific
   }
 }
 
+function requireNormalizedEmail(email: string): string {
+  try {
+    return normalizeEmail(email);
+  } catch (error) {
+    if (error instanceof NormalizationError) {
+      throw new HttpError(400, error.message);
+    }
+
+    throw error;
+  }
+}
+
 async function fetchContact(contactId: string, client?: DbClient): Promise<Contact> {
   const result = await query<Contact>('SELECT * FROM contacts WHERE id = $1', [contactId], client);
   const contact = result.rows[0];
@@ -60,6 +86,8 @@ async function fetchContact(contactId: string, client?: DbClient): Promise<Conta
 }
 
 export async function upsertContact(data: ContactInput, triggeredBy = 'operator'): Promise<Contact> {
+  const normalizedEmail = requireNormalizedEmail(data.email);
+  const normalizedSeniority = data.seniority ?? normalizeSeniority(data.title);
   return withTransaction(async (client) => {
     const result = await query<Contact>(
       `
@@ -73,9 +101,10 @@ export async function upsertContact(data: ContactInput, triggeredBy = 'operator'
           seniority,
           department,
           linkedin_url,
-          source
+          source,
+          last_seen_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
         ON CONFLICT (email)
         DO UPDATE SET
           company_id = EXCLUDED.company_id,
@@ -86,17 +115,18 @@ export async function upsertContact(data: ContactInput, triggeredBy = 'operator'
           department = EXCLUDED.department,
           linkedin_url = EXCLUDED.linkedin_url,
           source = EXCLUDED.source,
+          last_seen_at = NOW(),
           updated_at = NOW()
         RETURNING *
       `,
       [
         generateId(),
         data.company_id,
-        data.email.toLowerCase(),
+        normalizedEmail,
         data.first_name ?? null,
         data.last_name ?? null,
         data.title ?? null,
-        data.seniority ?? null,
+        normalizedSeniority,
         data.department ?? null,
         data.linkedin_url ?? null,
         data.source ?? null
@@ -129,6 +159,52 @@ export async function getContactsForCompany(companyId: string): Promise<Contact[
       ORDER BY created_at DESC
     `,
     [companyId]
+  );
+
+  return result.rows;
+}
+
+export async function listContacts(filters: ContactFilters): Promise<Contact[]> {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters.company_id) {
+    params.push(filters.company_id);
+    conditions.push(`company_id = $${params.length}`);
+  }
+
+  if (filters.verification_status) {
+    params.push(filters.verification_status);
+    conditions.push(`verification_status = $${params.length}`);
+  }
+
+  if (filters.seniority) {
+    params.push(filters.seniority);
+    conditions.push(`seniority = $${params.length}`);
+  }
+
+  if (filters.title) {
+    params.push(`%${filters.title}%`);
+    conditions.push(`title ILIKE $${params.length}`);
+  }
+
+  if (filters.suppressed !== undefined) {
+    if (filters.suppressed) {
+      conditions.push('(opted_out = true OR bounced = true)');
+    } else {
+      conditions.push('(opted_out = false AND bounced = false)');
+    }
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const result = await query<Contact>(
+    `
+      SELECT *
+      FROM contacts
+      ${whereClause}
+      ORDER BY created_at DESC
+    `,
+    params
   );
 
   return result.rows;

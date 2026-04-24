@@ -8,12 +8,19 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "readiness:check": "node scripts/readiness-check.mjs"
+    "readiness:check": "node scripts/readiness-check.mjs",
+    "mailboxes:smoke": "node scripts/mailboxes-google-smoke.mjs",
+    "import:companies": "tsx src/cli/import-companies.ts",
+    "import:contacts": "tsx src/cli/import-contacts.ts",
+    "import:status": "tsx src/cli/import-status.ts",
+    "import:preflight": "tsx src/cli/import-preflight.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "csv-parse": "^5.6.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "googleapis": "^153.0.0",
     "pg": "^8.13.1",
     "pg-boss": "^10.1.6",
     "zod": "^3.24.1"
