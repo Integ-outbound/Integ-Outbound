@@ -51,6 +51,7 @@ export interface Campaign {
   icp_target: Record<string, unknown>;
   sequence_steps: number;
   sequence_delay_days: number;
+  daily_send_limit: number | null;
   status: 'draft' | 'active' | 'paused' | 'archived';
   prompt_version: string | null;
   created_at: string;
@@ -104,11 +105,14 @@ export interface SentMessage {
   lead_id: string;
   draft_id: string;
   contact_id: string;
+  mailbox_id: string | null;
   from_address: string | null;
   subject: string | null;
   body: string | null;
   sending_provider: string | null;
   sent_at: string | null;
+  gmail_message_id: string | null;
+  gmail_thread_id: string | null;
   delivery_status: 'queued' | 'sent' | 'delivered' | 'bounced' | 'failed';
   opened: boolean;
   opened_at: string | null;
@@ -186,6 +190,12 @@ export interface Mailbox {
   provider: 'google';
   email: string;
   display_name: string | null;
+  is_active: boolean;
+  status: 'connected' | 'unhealthy' | 'disabled';
+  daily_send_limit: number;
+  consecutive_auth_failures: number;
+  last_auth_failed_at: string | null;
+  last_send_at: string | null;
   gmail_history_id: string | null;
   messages_total: number | null;
   threads_total: number | null;
@@ -231,5 +241,80 @@ export interface ContactSource {
   last_seen_at: string;
   last_imported_at: string;
   raw_payload: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface GmailSyncState {
+  id: string;
+  mailbox_id: string;
+  last_sync_started_at: string | null;
+  last_sync_completed_at: string | null;
+  last_history_id: string | null;
+  last_message_internal_at: string | null;
+  last_error: string | null;
+  sync_status: 'idle' | 'running' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailThread {
+  id: string;
+  mailbox_id: string;
+  gmail_thread_id: string;
+  subject: string | null;
+  participants: unknown;
+  first_message_at: string | null;
+  last_message_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailMessage {
+  id: string;
+  mailbox_id: string;
+  email_thread_id: string;
+  gmail_message_id: string;
+  gmail_thread_id: string;
+  direction: 'outbound' | 'inbound';
+  from_address: string | null;
+  to_addresses: unknown;
+  cc_addresses: unknown;
+  bcc_addresses: unknown;
+  subject: string | null;
+  snippet: string | null;
+  text_body: string | null;
+  html_body: string | null;
+  gmail_internal_date: string | null;
+  headers: unknown;
+  sent_message_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InboundMessageProcessing {
+  id: string;
+  email_message_id: string;
+  status: 'pending' | 'ingested' | 'skipped' | 'error';
+  matched_sent_message_id: string | null;
+  matched_by: string | null;
+  reply_id: string | null;
+  notes: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MailboxSendAttempt {
+  id: string;
+  mailbox_id: string | null;
+  lead_id: string;
+  contact_id: string;
+  campaign_id: string;
+  sent_message_id: string | null;
+  status: 'sent' | 'blocked' | 'failed';
+  failure_category: 'auth_failure' | 'rate_limit' | 'validation_error' | 'unknown' | 'governance' | null;
+  error_code: string | null;
+  error_message: string | null;
+  attempted_at: string;
   created_at: string;
 }

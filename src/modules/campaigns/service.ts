@@ -10,6 +10,7 @@ export interface CreateCampaignInput {
   icp_target: Record<string, unknown>;
   sequence_steps?: number;
   sequence_delay_days?: number;
+  daily_send_limit?: number | null;
   status: Campaign['status'];
   prompt_version?: string | null;
 }
@@ -21,6 +22,7 @@ export interface UpdateCampaignInput {
   icp_target?: Record<string, unknown>;
   sequence_steps?: number;
   sequence_delay_days?: number;
+  daily_send_limit?: number | null;
   status?: Campaign['status'];
   prompt_version?: string | null;
 }
@@ -44,10 +46,11 @@ export async function createCampaign(
           icp_target,
           sequence_steps,
           sequence_delay_days,
+          daily_send_limit,
           status,
           prompt_version
         )
-        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10)
         RETURNING *
       `,
       [
@@ -58,6 +61,7 @@ export async function createCampaign(
         JSON.stringify(data.icp_target),
         data.sequence_steps ?? 3,
         data.sequence_delay_days ?? 3,
+        data.daily_send_limit ?? null,
         data.status,
         data.prompt_version ?? null
       ],
@@ -141,8 +145,9 @@ export async function updateCampaign(
           icp_target = $5::jsonb,
           sequence_steps = $6,
           sequence_delay_days = $7,
-          status = $8,
-          prompt_version = $9,
+          daily_send_limit = $8,
+          status = $9,
+          prompt_version = $10,
           updated_at = NOW()
         WHERE id = $1
         RETURNING *
@@ -155,6 +160,7 @@ export async function updateCampaign(
         JSON.stringify(data.icp_target ?? existing.icp_target),
         data.sequence_steps ?? existing.sequence_steps,
         data.sequence_delay_days ?? existing.sequence_delay_days,
+        data.daily_send_limit ?? existing.daily_send_limit,
         data.status ?? existing.status,
         data.prompt_version ?? existing.prompt_version
       ],

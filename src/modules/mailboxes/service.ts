@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
-import { google } from 'googleapis';
+import { gmail_v1, google } from 'googleapis';
 
 import { HttpError } from '../../api/utils';
 import { ensureFound, generateId, query, withTransaction } from '../../db/client';
@@ -56,12 +56,33 @@ export interface TestSendInput {
   to: string;
   subject: string;
   body: string;
+  sentMessageId?: string;
 }
 
 export interface TestSendResult {
   mailboxId: string;
   messageId: string | null;
   threadId: string | null;
+}
+
+export interface SendMailboxEmailInput {
+  to: string;
+  subject: string;
+  body: string;
+  sentMessageId?: string;
+}
+
+export interface SendMailboxEmailResult {
+  mailboxId: string;
+  messageId: string | null;
+  threadId: string | null;
+}
+
+export interface AuthenticatedMailboxContext {
+  mailbox: Mailbox;
+  oauthToken: MailboxOauthToken;
+  oauthClient: InstanceType<typeof google.auth.OAuth2>;
+  gmail: gmail_v1.Gmail;
 }
 
 function getGoogleConfig(): GoogleOAuthConfig {
@@ -249,6 +270,28 @@ async function getMailboxWithToken(
   return result.rows[0] ?? null;
 }
 
+export async function getAuthenticatedMailboxContext(
+  mailboxId: string
+): Promise<AuthenticatedMailboxContext> {
+  const mailboxWithToken = await getMailboxWithToken(mailboxId);
+  if (!mailboxWithToken) {
+    throw new HttpError(404, `Mailbox ${mailboxId} not found.`);
+  }
+
+  const refreshToken = decryptRefreshToken(mailboxWithToken.oauth_token.refresh_token_encrypted);
+  const oauthClient = createOAuthClient();
+  oauthClient.setCredentials({
+    refresh_token: refreshToken
+  });
+
+  return {
+    mailbox: mailboxWithToken,
+    oauthToken: mailboxWithToken.oauth_token,
+    oauthClient,
+    gmail: google.gmail({ version: 'v1', auth: oauthClient })
+  };
+}
+
 function requireSafeHeaderValue(value: string, fieldName: string): string {
   if (/[\r\n]/.test(value)) {
     throw new HttpError(400, `${fieldName} contains invalid characters.`);
@@ -420,25 +463,16 @@ export async function handleGoogleOAuthCallback(
   return result;
 }
 
-export async function sendMailboxTestEmail(
+export async function sendMailboxEmail(
   mailboxId: string,
-  input: TestSendInput,
+  input: SendMailboxEmailInput,
   triggeredBy = 'operator'
-): Promise<TestSendResult> {
-  const mailboxWithToken = await getMailboxWithToken(mailboxId);
-  if (!mailboxWithToken) {
-    throw new HttpError(404, `Mailbox ${mailboxId} not found.`);
-  }
-
-  const refreshToken = decryptRefreshToken(mailboxWithToken.oauth_token.refresh_token_encrypted);
-  const oauthClient = createOAuthClient();
-  oauthClient.setCredentials({
-    refresh_token: refreshToken
-  });
+): Promise<SendMailboxEmailResult> {
+  const mailboxContext = await getAuthenticatedMailboxContext(mailboxId);
 
   const to = requireSafeHeaderValue(input.to.trim(), 'Recipient');
   const subject = requireSafeHeaderValue(input.subject.trim(), 'Subject');
-  const from = requireSafeHeaderValue(mailboxWithToken.email, 'Mailbox email');
+  const from = requireSafeHeaderValue(mailboxContext.mailbox.email, 'Mailbox email');
   const body = input.body;
 
   const rawMessage = [
@@ -451,29 +485,75 @@ export async function sendMailboxTestEmail(
     body
   ].join('\r\n');
 
-  const gmail = google.gmail({ version: 'v1', auth: oauthClient });
-  const sendResponse = await gmail.users.messages.send({
+  const sendResponse = await mailboxContext.gmail.users.messages.send({
     userId: 'me',
     requestBody: {
       raw: Buffer.from(rawMessage, 'utf8').toString('base64url')
     }
   });
 
-  await logEvent({
-    eventType: 'mailbox.test_email_sent',
-    entityType: 'mailbox',
-    entityId: mailboxWithToken.id,
-    payload: {
-      to,
-      message_id: sendResponse.data.id ?? null,
-      thread_id: sendResponse.data.threadId ?? null
-    },
-    triggeredBy
+  await withTransaction(async (client) => {
+    if (input.sentMessageId) {
+      await query(
+        `
+          UPDATE sent_messages
+          SET
+            gmail_message_id = COALESCE(gmail_message_id, $2),
+            gmail_thread_id = COALESCE(gmail_thread_id, $3)
+          WHERE id = $1
+        `,
+        [
+          input.sentMessageId,
+          sendResponse.data.id ?? null,
+          sendResponse.data.threadId ?? null
+        ],
+        client
+      );
+
+      await logEvent(
+        {
+          eventType: 'sent_message.gmail_linked',
+          entityType: 'sent_message',
+          entityId: input.sentMessageId,
+          payload: {
+            mailbox_id: mailboxContext.mailbox.id,
+            gmail_message_id: sendResponse.data.id ?? null,
+            gmail_thread_id: sendResponse.data.threadId ?? null
+          },
+          triggeredBy
+        },
+        client
+      );
+    }
+
+    await logEvent(
+      {
+        eventType: 'mailbox.test_email_sent',
+        entityType: 'mailbox',
+        entityId: mailboxContext.mailbox.id,
+        payload: {
+          to,
+          sent_message_id: input.sentMessageId ?? null,
+          message_id: sendResponse.data.id ?? null,
+          thread_id: sendResponse.data.threadId ?? null
+        },
+        triggeredBy
+      },
+      client
+    );
   });
 
   return {
-    mailboxId: mailboxWithToken.id,
+    mailboxId: mailboxContext.mailbox.id,
     messageId: sendResponse.data.id ?? null,
     threadId: sendResponse.data.threadId ?? null
   };
+}
+
+export async function sendMailboxTestEmail(
+  mailboxId: string,
+  input: TestSendInput,
+  triggeredBy = 'operator'
+): Promise<TestSendResult> {
+  return sendMailboxEmail(mailboxId, input, triggeredBy);
 }

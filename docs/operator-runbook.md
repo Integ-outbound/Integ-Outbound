@@ -25,7 +25,7 @@ This backend is designed for an internal operator-led outbound workflow.
 
 ## Important Constraints
 
-- The backend does not send email directly.
+- The backend can send through connected Gmail mailboxes, but only through internal operator or worker-controlled flows.
 - A lead cannot enter `send_ready` if:
   - the contact has opted out
   - the contact has bounced

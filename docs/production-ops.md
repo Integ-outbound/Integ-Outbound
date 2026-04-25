@@ -23,6 +23,11 @@ Use the included `render.yaml` blueprint:
 - `ANTHROPIC_API_KEY`
 - `VERIFICATION_PROVIDER`
 - `VERIFICATION_API_KEY`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+- `GOOGLE_GMAIL_SCOPES`
+- `MAILBOX_TOKEN_ENCRYPTION_KEY`
 - `INTERNAL_API_KEY`
 - `NODE_ENV`
 - `START_WORKER`
@@ -38,6 +43,16 @@ Use the included `render.yaml` blueprint:
 - Store all secrets in the hosting platform secret manager, never in tracked files.
 - Treat `/api/v1/ready` as the only public probe.
 - Treat `/api/v1/health` and all business routes as authenticated internal endpoints.
+- Keep `MAILBOX_TOKEN_ENCRYPTION_KEY` stable across deploys. If it changes, stored Gmail refresh tokens can no longer be decrypted and connected mailboxes must reconnect.
+
+## Gmail Production Requirements
+
+- `GOOGLE_REDIRECT_URI` must use the deployed API domain:
+  - `https://<api-domain>/api/v1/mailboxes/google/oauth/callback`
+- The Google Cloud OAuth web client must include that exact redirect URI.
+- Set `GOOGLE_GMAIL_SCOPES` to:
+  - `https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify`
+- The same Gmail env vars must be present on both the web/API service and the worker service.
 
 ## Migrations
 

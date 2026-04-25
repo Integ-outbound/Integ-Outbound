@@ -57,3 +57,7 @@ temp/
 *.pfx
 *.p12
 .secrets/
+
+imports/*.csv
+imports/*.json
+integ_apollo_*.csv

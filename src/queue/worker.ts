@@ -8,6 +8,7 @@ import { verifyBatch } from '../modules/contacts/service';
 import { generateBatchDrafts } from '../modules/drafts/service';
 import { enrichBatch } from '../modules/enrichment/service';
 import { scoreAllUnscored } from '../modules/icp/service';
+import { processSendReadyLeads, runScheduledMailboxSync } from '../modules/mailboxes/operations';
 import { logEvent } from '../modules/observability/service';
 import { classifyReply } from '../modules/replies/service';
 import { BatchJobError } from '../modules/shared/batch';
@@ -15,6 +16,8 @@ import { scheduleNextStep } from '../modules/sending/service';
 import {
   ClassifyReplyJobData,
   EnrichBatchJobData,
+  GmailSendReadyLeadJobData,
+  GmailSyncMailboxJobData,
   GenerateDraftsJobData,
   JOB_NAMES,
   ScheduleNextStepJobData,
@@ -39,6 +42,12 @@ const classifyReplyJobSchema = z.object({
 });
 const scheduleNextStepJobSchema = z.object({
   leadId: z.string().uuid()
+});
+const gmailSyncMailboxJobSchema = z.object({
+  limit: z.number().int().positive().max(200).optional()
+});
+const gmailSendReadyLeadJobSchema = z.object({
+  limit: z.number().int().positive().max(100).optional()
 });
 
 export function getQueue(): PgBoss {
@@ -74,6 +83,10 @@ async function ensureQueueStarted(): Promise<PgBoss> {
   for (const jobName of Object.values(JOB_NAMES)) {
     await boss.createQueue(jobName);
   }
+
+  await boss.schedule(JOB_NAMES.GMAIL_SYNC_MAILBOX, '*/5 * * * *', { limit: 25 });
+  await boss.schedule(JOB_NAMES.GMAIL_SEND_READY_LEAD, '*/2 * * * *', { limit: 10 });
+
   return boss;
 }
 
@@ -190,7 +203,23 @@ export async function startWorker(registerHandlers = true): Promise<PgBoss> {
     JOB_NAMES.SCHEDULE_NEXT_STEP,
     scheduleNextStepJobSchema,
     async (data) => {
-    await scheduleNextStep(data.leadId, 'system');
+      await scheduleNextStep(data.leadId, 'system');
+    }
+  );
+
+  await registerHandler<GmailSyncMailboxJobData>(
+    JOB_NAMES.GMAIL_SYNC_MAILBOX,
+    gmailSyncMailboxJobSchema,
+    async (data) => {
+      await runScheduledMailboxSync(data.limit ?? 25, 'system');
+    }
+  );
+
+  await registerHandler<GmailSendReadyLeadJobData>(
+    JOB_NAMES.GMAIL_SEND_READY_LEAD,
+    gmailSendReadyLeadJobSchema,
+    async (data) => {
+      await processSendReadyLeads(data.limit ?? 10, 'system');
     }
   );
 

@@ -8,6 +8,7 @@ import {
   markBounced,
   markSent
 } from '../../modules/sending/service';
+import { processSendReadyLeads } from '../../modules/mailboxes/operations';
 
 const router = Router();
 
@@ -28,6 +29,10 @@ const markSentBodySchema = z.object({
 
 const markBouncedBodySchema = z.object({
   sentMessageId: z.string().uuid()
+});
+
+const processSendReadyBodySchema = z.object({
+  limit: z.number().int().positive().max(100).optional()
 });
 
 router.get(
@@ -54,6 +59,19 @@ router.post(
     const body = parseWithSchema(markBouncedBodySchema, req.body, 'Invalid mark-bounced payload.');
     const sentMessage = await markBounced(body.sentMessageId);
     res.status(200).json(sentMessage);
+  })
+);
+
+router.post(
+  '/sending/process-send-ready',
+  asyncHandler(async (req, res) => {
+    const body = parseWithSchema(
+      processSendReadyBodySchema,
+      req.body ?? {},
+      'Invalid process-send-ready payload.'
+    );
+    const result = await processSendReadyLeads(body.limit ?? 10, 'operator');
+    res.status(200).json(result);
   })
 );
 

@@ -27,10 +27,13 @@ async function getReply(replyId: string, client?: DbClient): Promise<Reply> {
   return reply;
 }
 
-async function getSentMessage(sentMessageId: string, client?: DbClient): Promise<SentMessage & { company_id: string }> {
-  const result = await query<SentMessage & { company_id: string }>(
+async function getSentMessage(
+  sentMessageId: string,
+  client?: DbClient
+): Promise<SentMessage & { company_id: string; campaign_id: string; sequence_step: number }> {
+  const result = await query<SentMessage & { company_id: string; campaign_id: string; sequence_step: number }>(
     `
-      SELECT sm.*, l.company_id
+      SELECT sm.*, l.company_id, l.campaign_id, l.sequence_step
       FROM sent_messages sm
       INNER JOIN leads l ON l.id = sm.lead_id
       WHERE sm.id = $1
@@ -45,6 +48,55 @@ async function getSentMessage(sentMessageId: string, client?: DbClient): Promise
   }
 
   return sentMessage;
+}
+
+async function stopFutureSequenceSteps(
+  sentMessage: SentMessage & { company_id: string; campaign_id: string; sequence_step: number },
+  replyId: string,
+  triggeredBy: string,
+  client: DbClient
+): Promise<void> {
+  const result = await query<{ id: string }>(
+    `
+      UPDATE leads
+      SET
+        status = 'suppressed',
+        next_step_at = NULL,
+        updated_at = NOW()
+      WHERE campaign_id = $1
+        AND company_id = $2
+        AND contact_id = $3
+        AND sequence_step > $4
+        AND status IN ('pending_review', 'approved', 'send_ready')
+      RETURNING id
+    `,
+    [
+      sentMessage.campaign_id,
+      sentMessage.company_id,
+      sentMessage.contact_id,
+      sentMessage.sequence_step
+    ],
+    client
+  );
+
+  if (result.rows.length === 0) {
+    return;
+  }
+
+  await logEvent(
+    {
+      eventType: 'lead.sequence_stopped_on_reply',
+      entityType: 'lead',
+      entityId: sentMessage.lead_id,
+      payload: {
+        reply_id: replyId,
+        affected_lead_ids: result.rows.map((row) => row.id),
+        campaign_id: sentMessage.campaign_id
+      },
+      triggeredBy
+    },
+    client
+  );
 }
 
 export async function ingestReply(
@@ -87,6 +139,8 @@ export async function ingestReply(
       },
       client
     );
+
+    await stopFutureSequenceSteps(sentMessage, ensureFound(result.rows[0], 'Reply insert failed.').id, triggeredBy, client);
 
     return ensureFound(result.rows[0], 'Reply insert failed.');
   });

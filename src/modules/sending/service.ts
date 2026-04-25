@@ -5,11 +5,14 @@ import { logEvent } from '../observability/service';
 export interface MarkSentInput {
   leadId: string;
   draftId: string;
+  mailboxId?: string;
   fromAddress: string;
   subject?: string;
   body?: string;
   sendingProvider: string;
   sentAt?: string;
+  gmailMessageId?: string;
+  gmailThreadId?: string;
   deliveryStatus?: SentMessage['delivery_status'];
 }
 
@@ -184,14 +187,17 @@ export async function markSent(input: MarkSentInput, triggeredBy = 'operator'): 
           lead_id,
           draft_id,
           contact_id,
+          mailbox_id,
           from_address,
           subject,
           body,
           sending_provider,
           sent_at,
+          gmail_message_id,
+          gmail_thread_id,
           delivery_status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
       `,
       [
@@ -199,11 +205,14 @@ export async function markSent(input: MarkSentInput, triggeredBy = 'operator'): 
         lead.id,
         draft.id,
         lead.contact_id,
+        input.mailboxId ?? null,
         input.fromAddress,
         finalSubject,
         finalBody,
         input.sendingProvider,
         sentAt,
+        input.gmailMessageId ?? null,
+        input.gmailThreadId ?? null,
         input.deliveryStatus ?? 'sent'
       ],
       client
@@ -241,7 +250,10 @@ export async function markSent(input: MarkSentInput, triggeredBy = 'operator'): 
         payload: {
           lead_id: lead.id,
           draft_id: draft.id,
-          sending_provider: input.sendingProvider
+          mailbox_id: input.mailboxId ?? null,
+          sending_provider: input.sendingProvider,
+          gmail_message_id: input.gmailMessageId ?? null,
+          gmail_thread_id: input.gmailThreadId ?? null
         },
         triggeredBy
       },

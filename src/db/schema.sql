@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
   icp_target jsonb NOT NULL,
   sequence_steps integer NOT NULL DEFAULT 3 CHECK (sequence_steps >= 1),
   sequence_delay_days integer NOT NULL DEFAULT 3 CHECK (sequence_delay_days >= 0),
+  daily_send_limit integer CHECK (daily_send_limit IS NULL OR daily_send_limit >= 1),
   status text NOT NULL CHECK (status IN ('draft', 'active', 'paused', 'archived')),
   prompt_version text,
   created_at timestamptz NOT NULL DEFAULT NOW(),
@@ -122,11 +123,14 @@ CREATE TABLE IF NOT EXISTS sent_messages (
   lead_id uuid NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
   draft_id uuid NOT NULL REFERENCES drafts(id) ON DELETE CASCADE,
   contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+  mailbox_id uuid REFERENCES mailboxes(id) ON DELETE SET NULL,
   from_address text,
   subject text,
   body text,
   sending_provider text,
   sent_at timestamptz,
+  gmail_message_id text,
+  gmail_thread_id text,
   delivery_status text NOT NULL CHECK (
     delivery_status IN ('queued', 'sent', 'delivered', 'bounced', 'failed')
   ),
@@ -233,6 +237,12 @@ CREATE TABLE IF NOT EXISTS mailboxes (
   provider text NOT NULL CHECK (provider IN ('google')),
   email text NOT NULL,
   display_name text,
+  is_active boolean NOT NULL DEFAULT true,
+  status text NOT NULL DEFAULT 'connected' CHECK (status IN ('connected', 'unhealthy', 'disabled')),
+  daily_send_limit integer NOT NULL DEFAULT 50 CHECK (daily_send_limit >= 1),
+  consecutive_auth_failures integer NOT NULL DEFAULT 0 CHECK (consecutive_auth_failures >= 0),
+  last_auth_failed_at timestamptz,
+  last_send_at timestamptz,
   gmail_history_id text,
   messages_total integer,
   threads_total integer,
@@ -284,11 +294,122 @@ CREATE TABLE IF NOT EXISTS contact_sources (
   UNIQUE (contact_id, source_type, source_name, source_record_id)
 );
 
+CREATE TABLE IF NOT EXISTS gmail_sync_state (
+  id uuid PRIMARY KEY,
+  mailbox_id uuid NOT NULL UNIQUE REFERENCES mailboxes(id) ON DELETE CASCADE,
+  last_sync_started_at timestamptz,
+  last_sync_completed_at timestamptz,
+  last_history_id text,
+  last_message_internal_at timestamptz,
+  last_error text,
+  sync_status text NOT NULL DEFAULT 'idle' CHECK (
+    sync_status IN ('idle', 'running', 'completed', 'failed')
+  ),
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS email_threads (
+  id uuid PRIMARY KEY,
+  mailbox_id uuid NOT NULL REFERENCES mailboxes(id) ON DELETE CASCADE,
+  gmail_thread_id text NOT NULL,
+  subject text,
+  participants jsonb,
+  first_message_at timestamptz,
+  last_message_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW(),
+  UNIQUE (mailbox_id, gmail_thread_id)
+);
+
+CREATE TABLE IF NOT EXISTS email_messages (
+  id uuid PRIMARY KEY,
+  mailbox_id uuid NOT NULL REFERENCES mailboxes(id) ON DELETE CASCADE,
+  email_thread_id uuid NOT NULL REFERENCES email_threads(id) ON DELETE CASCADE,
+  gmail_message_id text NOT NULL,
+  gmail_thread_id text NOT NULL,
+  direction text NOT NULL CHECK (direction IN ('outbound', 'inbound')),
+  from_address text,
+  to_addresses jsonb,
+  cc_addresses jsonb,
+  bcc_addresses jsonb,
+  subject text,
+  snippet text,
+  text_body text,
+  html_body text,
+  gmail_internal_date timestamptz,
+  headers jsonb,
+  sent_message_id uuid REFERENCES sent_messages(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW(),
+  UNIQUE (mailbox_id, gmail_message_id)
+);
+
+CREATE TABLE IF NOT EXISTS inbound_message_processing (
+  id uuid PRIMARY KEY,
+  email_message_id uuid NOT NULL UNIQUE REFERENCES email_messages(id) ON DELETE CASCADE,
+  status text NOT NULL CHECK (status IN ('pending', 'ingested', 'skipped', 'error')),
+  matched_sent_message_id uuid REFERENCES sent_messages(id) ON DELETE SET NULL,
+  matched_by text,
+  reply_id uuid REFERENCES replies(id) ON DELETE SET NULL,
+  notes text,
+  error_message text,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS mailbox_send_attempts (
+  id uuid PRIMARY KEY,
+  mailbox_id uuid REFERENCES mailboxes(id) ON DELETE SET NULL,
+  lead_id uuid NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+  campaign_id uuid NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  sent_message_id uuid REFERENCES sent_messages(id) ON DELETE SET NULL,
+  status text NOT NULL CHECK (status IN ('sent', 'blocked', 'failed')),
+  failure_category text CHECK (
+    failure_category IS NULL OR failure_category IN ('auth_failure', 'rate_limit', 'validation_error', 'unknown', 'governance')
+  ),
+  error_code text,
+  error_message text,
+  attempted_at timestamptz NOT NULL DEFAULT NOW(),
+  created_at timestamptz NOT NULL DEFAULT NOW()
+);
+
 ALTER TABLE companies
   ADD COLUMN IF NOT EXISTS last_seen_at timestamptz;
 
 ALTER TABLE contacts
   ADD COLUMN IF NOT EXISTS last_seen_at timestamptz;
+
+ALTER TABLE campaigns
+  ADD COLUMN IF NOT EXISTS daily_send_limit integer CHECK (daily_send_limit IS NULL OR daily_send_limit >= 1);
+
+ALTER TABLE sent_messages
+  ADD COLUMN IF NOT EXISTS mailbox_id uuid REFERENCES mailboxes(id) ON DELETE SET NULL;
+
+ALTER TABLE sent_messages
+  ADD COLUMN IF NOT EXISTS gmail_message_id text;
+
+ALTER TABLE sent_messages
+  ADD COLUMN IF NOT EXISTS gmail_thread_id text;
+
+ALTER TABLE mailboxes
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+
+ALTER TABLE mailboxes
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'connected' CHECK (status IN ('connected', 'unhealthy', 'disabled'));
+
+ALTER TABLE mailboxes
+  ADD COLUMN IF NOT EXISTS daily_send_limit integer NOT NULL DEFAULT 50 CHECK (daily_send_limit >= 1);
+
+ALTER TABLE mailboxes
+  ADD COLUMN IF NOT EXISTS consecutive_auth_failures integer NOT NULL DEFAULT 0 CHECK (consecutive_auth_failures >= 0);
+
+ALTER TABLE mailboxes
+  ADD COLUMN IF NOT EXISTS last_auth_failed_at timestamptz;
+
+ALTER TABLE mailboxes
+  ADD COLUMN IF NOT EXISTS last_send_at timestamptz;
 
 CREATE INDEX IF NOT EXISTS idx_companies_domain ON companies(domain);
 CREATE INDEX IF NOT EXISTS idx_companies_industry ON companies(industry);
@@ -314,6 +435,20 @@ CREATE INDEX IF NOT EXISTS idx_company_sources_source_batch_id ON company_source
 CREATE INDEX IF NOT EXISTS idx_contact_sources_source_batch_id ON contact_sources(source_batch_id);
 CREATE INDEX IF NOT EXISTS idx_mailboxes_provider_email ON mailboxes(provider, email);
 CREATE INDEX IF NOT EXISTS idx_mailbox_oauth_tokens_mailbox_id ON mailbox_oauth_tokens(mailbox_id);
+CREATE INDEX IF NOT EXISTS idx_sent_messages_gmail_message_id ON sent_messages(gmail_message_id);
+CREATE INDEX IF NOT EXISTS idx_sent_messages_gmail_thread_id ON sent_messages(gmail_thread_id);
+CREATE INDEX IF NOT EXISTS idx_sent_messages_mailbox_id ON sent_messages(mailbox_id);
+CREATE INDEX IF NOT EXISTS idx_gmail_sync_state_mailbox_id ON gmail_sync_state(mailbox_id);
+CREATE INDEX IF NOT EXISTS idx_email_threads_mailbox_thread ON email_threads(mailbox_id, gmail_thread_id);
+CREATE INDEX IF NOT EXISTS idx_email_messages_mailbox_message ON email_messages(mailbox_id, gmail_message_id);
+CREATE INDEX IF NOT EXISTS idx_email_messages_mailbox_thread ON email_messages(mailbox_id, gmail_thread_id);
+CREATE INDEX IF NOT EXISTS idx_email_messages_direction ON email_messages(direction);
+CREATE INDEX IF NOT EXISTS idx_email_messages_sent_message_id ON email_messages(sent_message_id);
+CREATE INDEX IF NOT EXISTS idx_inbound_message_processing_status ON inbound_message_processing(status);
+CREATE INDEX IF NOT EXISTS idx_inbound_message_processing_sent_message_id ON inbound_message_processing(matched_sent_message_id);
+CREATE INDEX IF NOT EXISTS idx_mailbox_send_attempts_mailbox_attempted_at ON mailbox_send_attempts(mailbox_id, attempted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mailbox_send_attempts_campaign_attempted_at ON mailbox_send_attempts(campaign_id, attempted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mailbox_send_attempts_lead_id ON mailbox_send_attempts(lead_id);
 
 DO $$
 BEGIN
@@ -355,6 +490,34 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'mailbox_oauth_tokens_set_updated_at') THEN
     CREATE TRIGGER mailbox_oauth_tokens_set_updated_at
     BEFORE UPDATE ON mailbox_oauth_tokens
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'gmail_sync_state_set_updated_at') THEN
+    CREATE TRIGGER gmail_sync_state_set_updated_at
+    BEFORE UPDATE ON gmail_sync_state
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'email_threads_set_updated_at') THEN
+    CREATE TRIGGER email_threads_set_updated_at
+    BEFORE UPDATE ON email_threads
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'email_messages_set_updated_at') THEN
+    CREATE TRIGGER email_messages_set_updated_at
+    BEFORE UPDATE ON email_messages
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'inbound_message_processing_set_updated_at') THEN
+    CREATE TRIGGER inbound_message_processing_set_updated_at
+    BEFORE UPDATE ON inbound_message_processing
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
   END IF;

@@ -20,6 +20,7 @@ const createCampaignBodySchema = z.object({
   icp_target: z.record(z.unknown()),
   sequence_steps: z.number().int().positive().optional(),
   sequence_delay_days: z.number().int().min(0).optional(),
+  daily_send_limit: z.number().int().positive().nullable().optional(),
   status: campaignStatusSchema,
   prompt_version: z.string().trim().min(1).nullable().optional()
 });
@@ -40,6 +41,7 @@ const updateCampaignBodySchema = z
     icp_target: z.record(z.unknown()).optional(),
     sequence_steps: z.number().int().positive().optional(),
     sequence_delay_days: z.number().int().min(0).optional(),
+    daily_send_limit: z.number().int().positive().nullable().optional(),
     status: campaignStatusSchema.optional(),
     prompt_version: z.string().trim().min(1).nullable().optional()
   })

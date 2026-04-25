@@ -1,6 +1,6 @@
 # Internal Outbound Operations Backend
 
-This repository contains a single Node.js + TypeScript backend for running an internal B2B outbound operations pipeline. It is a workflow engine with AI assistance at specific nodes, not a chatbot and not a direct email sender.
+This repository contains a single Node.js + TypeScript backend for running an internal B2B outbound operations pipeline. It is a workflow engine with AI assistance at specific nodes, not a chatbot. It can send through connected Gmail mailboxes, but only through internal operator/worker-governed flows and not as a public bulk-email platform.
 
 ## Source Of Truth
 
@@ -59,7 +59,7 @@ There is no surviving Python, FastAPI, Next.js, SQLite, or OpenAI application in
 
 ## What Is Intentionally Not Implemented Yet
 
-- Direct email delivery. The system tracks queue and send state only.
+- Public or generic bulk-email sending. Gmail sending is implemented for connected internal mailboxes, but it remains an operator/worker-governed outbound system rather than a general email platform.
 - Per-user auth and user management. The current auth model is a shared internal API key.
 - Automated tests. Validation is currently by typecheck, build, startup, and manual smoke checks.
 - A built-in contact discovery provider. Contacts can be ingested and verified, but provider-backed discovery is not part of the current implementation.
@@ -69,6 +69,7 @@ There is no surviving Python, FastAPI, Next.js, SQLite, or OpenAI application in
 All `/api/v1` routes require `x-api-key`, except:
 
 - `GET /api/v1/ready`
+- `GET /api/v1/mailboxes/google/oauth/callback`
 
 Set the shared key with `INTERNAL_API_KEY` and send it in the request header:
 
@@ -194,6 +195,8 @@ Existing operational routes cover companies, ICP, contacts, enrichment, drafts, 
 
 Additional operator-facing routes:
 
+- `GET /api/v1/mailboxes`
+- `GET /api/v1/mailboxes/:id`
 - `POST /api/v1/campaigns`
 - `GET /api/v1/campaigns`
 - `GET /api/v1/campaigns/:id`
@@ -209,12 +212,14 @@ Additional operator-facing routes:
 - `GET /api/v1/mailboxes/google/oauth/start`
 - `GET /api/v1/mailboxes/google/oauth/callback`
 - `POST /api/v1/mailboxes/:id/test-send`
+- `POST /api/v1/mailboxes/:id/sync`
+- `POST /api/v1/sending/process-send-ready`
 - `GET /api/v1/health`
 - `GET /api/v1/ready`
 
 ## Gmail OAuth Setup
 
-This backend supports Gmail OAuth mailbox connection and Gmail API test send. Inbox sync is intentionally not implemented yet.
+This backend supports Gmail OAuth mailbox connection, Gmail API test send, manual Gmail inbox polling sync, scheduled Gmail polling sync, and autonomous processing of `send_ready` leads through Gmail. Push notifications and inbox auto-replies are intentionally not implemented yet.
 
 Required Gmail scopes:
 
@@ -235,6 +240,31 @@ OAuth callback behavior:
 - fetches the Gmail profile
 - creates or updates the mailbox record
 - stores the refresh token encrypted in PostgreSQL
+
+Manual sync behavior:
+
+- `POST /api/v1/mailboxes/:id/sync`
+- polls recent Gmail messages through the Gmail API
+- stores canonical Gmail threads and messages in PostgreSQL
+- detects inbound replies and routes matched replies into the existing `replies` classification pipeline
+- suppresses future sequence steps for the matched outbound lead once a real reply is ingested
+
+Mailbox status behavior:
+
+- `GET /api/v1/mailboxes`
+- `GET /api/v1/mailboxes/:id`
+- returns mailbox status, sync health, last sync time, daily send count, and daily send limit
+
+Autonomous worker behavior:
+
+- pg-boss schedules `gmail.syncMailbox` every 5 minutes
+- pg-boss schedules `gmail.sendReadyLead` every 2 minutes
+- sync only runs for active connected mailboxes
+- send-ready processing only sends from active connected mailboxes under their daily cap
+- Gmail send failures are recorded in `mailbox_send_attempts`
+- repeated auth failures mark the mailbox unhealthy
+- suppression or contact-state blocks suppress the lead instead of repeatedly retrying it
+- repeated hard send failures pause the lead back into human review instead of retrying forever
 
 ### Curl Smoke Flow
 
@@ -267,6 +297,40 @@ curl -s \
 
 The response includes the Gmail `messageId` and `threadId`.
 
+4. Sync Gmail manually:
+
+```bash
+curl -s \
+  -X POST \
+  -H "x-api-key: YOUR_INTERNAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"maxResults":50}' \
+  http://localhost:3000/api/v1/mailboxes/MAILBOX_ID/sync
+```
+
+The response includes sync counts and reply-ingestion counts.
+
+5. List connected mailboxes:
+
+```bash
+curl -s \
+  -H "x-api-key: YOUR_INTERNAL_API_KEY" \
+  http://localhost:3000/api/v1/mailboxes
+```
+
+6. Trigger send-ready processing manually:
+
+```bash
+curl -s \
+  -X POST \
+  -H "x-api-key: YOUR_INTERNAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"limit":10}' \
+  http://localhost:3000/api/v1/sending/process-send-ready
+```
+
+The response shows how many leads were sent, blocked, or failed.
+
 ### Smoke Script
 
 You can also use the bundled smoke script:
@@ -284,6 +348,95 @@ $env:MAILBOX_ID="MAILBOX_UUID"
 $env:TEST_EMAIL_TO="you@example.com"
 npm run mailboxes:smoke
 ```
+
+## Gmail Reply Sync Smoke Flow
+
+To prove Gmail replies connect back to outbound state:
+
+1. Make sure the API and worker are both running.
+2. Create or use an existing lead/draft pair and mark it sent through `POST /api/v1/sending/mark-sent`.
+3. Send the real Gmail message through:
+
+```bash
+curl -s \
+  -X POST \
+  -H "x-api-key: YOUR_INTERNAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"to":"contact@example.com","subject":"Real Gmail reply-sync test","body":"Please reply to this message.","sentMessageId":"YOUR_SENT_MESSAGE_ID"}' \
+  http://localhost:3000/api/v1/mailboxes/MAILBOX_ID/test-send
+```
+
+4. Reply to that email from the recipient inbox.
+5. Run the manual sync endpoint:
+
+```bash
+curl -s \
+  -X POST \
+  -H "x-api-key: YOUR_INTERNAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{}' \
+  http://localhost:3000/api/v1/mailboxes/MAILBOX_ID/sync
+```
+
+6. Confirm:
+   - the inbound Gmail message was stored in `email_messages`
+   - `replies_ingested` is greater than `0`
+   - `GET /api/v1/replies/unhandled` shows the new reply after classification/routing if it needs human review
+   - future sequence leads for the same contact/campaign moved to `suppressed`
+
+## Gmail Operations Smoke Checks
+
+List connected mailboxes and status:
+
+```bash
+curl -s \
+  -H "x-api-key: YOUR_INTERNAL_API_KEY" \
+  http://localhost:3000/api/v1/mailboxes
+```
+
+Run one manual mailbox sync:
+
+```bash
+curl -s \
+  -X POST \
+  -H "x-api-key: YOUR_INTERNAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"maxResults":50}' \
+  http://localhost:3000/api/v1/mailboxes/MAILBOX_ID/sync
+```
+
+Run one manual send-ready batch:
+
+```bash
+curl -s \
+  -X POST \
+  -H "x-api-key: YOUR_INTERNAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"limit":10}' \
+  http://localhost:3000/api/v1/sending/process-send-ready
+```
+
+Verify mailbox daily-cap behavior:
+
+1. Create an active campaign with `daily_send_limit=1`
+2. Put two leads for that campaign into `send_ready`
+3. Run `POST /api/v1/sending/process-send-ready`
+4. Confirm the first lead sends and the second lead returns `Campaign daily send limit reached.`
+
+Verify opt-out or suppression blocking:
+
+1. Put a lead into `send_ready` for an opted-out, bounced, or suppressed record
+2. Run `POST /api/v1/sending/process-send-ready`
+3. Confirm the result is blocked with `Suppression or contact state blocks sending.`
+4. Confirm the lead status is updated to `suppressed`
+
+Verify reply suppression still works:
+
+1. Send a tracked Gmail message with `sentMessageId`
+2. Reply from the recipient inbox
+3. Run `POST /api/v1/mailboxes/:id/sync`
+4. Confirm the reply is stored and ingested
+5. Confirm future sequence leads for the same contact/campaign move to `suppressed`
 
 ## Large KB Imports
 

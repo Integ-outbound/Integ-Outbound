@@ -7,6 +7,11 @@ import {
   sendMailboxTestEmail,
   startGoogleOAuth
 } from '../../modules/mailboxes/service';
+import {
+  getMailboxStatus,
+  listMailboxes
+} from '../../modules/mailboxes/operations';
+import { syncMailbox } from '../../modules/mailboxes/sync';
 
 const publicMailboxesRouter = Router();
 const router = Router();
@@ -31,7 +36,12 @@ const testSendBodySchema = z.object({
     .trim()
     .min(1)
     .refine((value) => !/[\r\n]/.test(value), 'Subject must not contain new lines.'),
-  body: z.string().min(1)
+  body: z.string().min(1),
+  sentMessageId: z.string().uuid().optional()
+});
+
+const syncBodySchema = z.object({
+  maxResults: z.number().int().positive().max(200).optional()
 });
 
 publicMailboxesRouter.get(
@@ -60,6 +70,28 @@ publicMailboxesRouter.get(
 );
 
 router.get(
+  '/mailboxes',
+  asyncHandler(async (_req, res) => {
+    const mailboxes = await listMailboxes();
+    res.status(200).json(mailboxes);
+  })
+);
+
+router.get(
+  '/mailboxes/:id',
+  asyncHandler(async (req, res) => {
+    const params = parseWithSchema(mailboxIdParamsSchema, req.params, 'Invalid mailbox id.');
+    const mailbox = await getMailboxStatus(params.id);
+    if (!mailbox) {
+      res.status(404).json({ message: 'Mailbox not found.' });
+      return;
+    }
+
+    res.status(200).json(mailbox);
+  })
+);
+
+router.get(
   '/mailboxes/google/oauth/start',
   asyncHandler(async (req, res) => {
     parseWithSchema(emptyQuerySchema, req.query, 'Invalid Google OAuth start query.');
@@ -74,6 +106,16 @@ router.post(
     const params = parseWithSchema(mailboxIdParamsSchema, req.params, 'Invalid mailbox id.');
     const body = parseWithSchema(testSendBodySchema, req.body, 'Invalid mailbox test-send payload.');
     const result = await sendMailboxTestEmail(params.id, body);
+    res.status(200).json(result);
+  })
+);
+
+router.post(
+  '/mailboxes/:id/sync',
+  asyncHandler(async (req, res) => {
+    const params = parseWithSchema(mailboxIdParamsSchema, req.params, 'Invalid mailbox id.');
+    const body = parseWithSchema(syncBodySchema, req.body ?? {}, 'Invalid mailbox sync payload.');
+    const result = await syncMailbox(params.id, body);
     res.status(200).json(result);
   })
 );
