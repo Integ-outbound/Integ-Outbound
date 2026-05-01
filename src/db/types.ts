@@ -1,3 +1,12 @@
+export interface Client {
+  id: string;
+  slug: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Company {
   id: string;
   domain: string;
@@ -45,6 +54,7 @@ export interface Contact {
 
 export interface Campaign {
   id: string;
+  client_id: string;
   name: string;
   angle: string;
   persona: string;
@@ -60,6 +70,7 @@ export interface Campaign {
 
 export interface Lead {
   id: string;
+  client_id: string;
   company_id: string;
   contact_id: string;
   campaign_id: string;
@@ -102,6 +113,7 @@ export interface Draft {
 
 export interface SentMessage {
   id: string;
+  client_id: string;
   lead_id: string;
   draft_id: string;
   contact_id: string;
@@ -121,6 +133,7 @@ export interface SentMessage {
 
 export interface Reply {
   id: string;
+  client_id: string;
   sent_message_id: string;
   contact_id: string;
   company_id: string;
@@ -130,7 +143,16 @@ export interface Reply {
   classification_model: string | null;
   routing_decision: 'auto_handled' | 'human_review' | 'escalated' | null;
   operator_action: string | null;
+  suggested_response_subject: string | null;
   suggested_response: string | null;
+  suggested_response_model: string | null;
+  suggested_response_generated_at: string | null;
+  reviewed_response_subject: string | null;
+  reviewed_response_body: string | null;
+  reviewed_response_status: 'approved' | 'edited' | 'rejected' | null;
+  reviewed_response_notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   handled: boolean;
   handled_at: string | null;
   received_at: string | null;
@@ -187,6 +209,7 @@ export interface ImportBatch {
 
 export interface Mailbox {
   id: string;
+  client_id: string;
   provider: 'google';
   email: string;
   display_name: string | null;

@@ -1,6 +1,7 @@
 import { HttpError } from '../../api/utils';
 import { ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Campaign, Company, Contact, Draft, Lead, Mailbox, MailboxSendAttempt } from '../../db/types';
+import { appendClientScope } from '../clients/scope';
 import { logEvent } from '../observability/service';
 import { sendMailboxEmail } from './service';
 import { syncMailbox } from './sync';
@@ -13,6 +14,7 @@ const LEAD_SEND_FAILURE_THRESHOLD = 3;
 
 export interface MailboxStatusView {
   id: string;
+  client_id: string;
   email: string;
   provider: Mailbox['provider'];
   status: Mailbox['status'];
@@ -151,17 +153,27 @@ function computeSyncHealth(mailbox: {
   return 'healthy';
 }
 
-async function getMailboxStatusRows(mailboxId?: string): Promise<Array<Mailbox & {
-  last_sync_completed_at: string | null;
-  sync_status: string | null;
-  last_error: string | null;
-  daily_send_count: string;
-}>> {
+async function getMailboxStatusRows(
+  mailboxId?: string,
+  clientId?: string
+): Promise<
+  Array<
+    Mailbox & {
+      last_sync_completed_at: string | null;
+      sync_status: string | null;
+      last_error: string | null;
+      daily_send_count: string;
+    }
+  >
+> {
+  const conditions: string[] = [];
   const params: unknown[] = [];
-  const whereClause = mailboxId ? 'WHERE m.id = $1' : '';
   if (mailboxId) {
     params.push(mailboxId);
+    conditions.push(`m.id = $${params.length}`);
   }
+  appendClientScope(conditions, params, 'm.client_id', clientId);
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const result = await query<
     Mailbox & {
@@ -204,6 +216,7 @@ function toMailboxStatusView(row: Mailbox & {
 }): MailboxStatusView {
   return {
     id: row.id,
+    client_id: row.client_id,
     email: row.email,
     provider: row.provider,
     status: row.status,
@@ -217,13 +230,16 @@ function toMailboxStatusView(row: Mailbox & {
   };
 }
 
-export async function listMailboxes(): Promise<MailboxStatusView[]> {
-  const rows = await getMailboxStatusRows();
+export async function listMailboxes(clientId?: string): Promise<MailboxStatusView[]> {
+  const rows = await getMailboxStatusRows(undefined, clientId);
   return rows.map(toMailboxStatusView);
 }
 
-export async function getMailboxStatus(mailboxId: string): Promise<MailboxStatusView | null> {
-  const rows = await getMailboxStatusRows(mailboxId);
+export async function getMailboxStatus(
+  mailboxId: string,
+  clientId?: string
+): Promise<MailboxStatusView | null> {
+  const rows = await getMailboxStatusRows(mailboxId, clientId);
   const row = rows[0];
   return row ? toMailboxStatusView(row) : null;
 }
@@ -314,6 +330,7 @@ async function getLeadSendContext(leadId: string, client?: Parameters<typeof que
   return {
     lead: {
       id: row.id,
+      client_id: row.client_id,
       company_id: row.company_id,
       contact_id: row.contact_id,
       campaign_id: row.campaign_id,
@@ -351,7 +368,19 @@ async function getDailyCampaignSendCount(campaignId: string, client?: Parameters
   return Number(result.rows[0]?.count ?? 0);
 }
 
-async function getAvailableMailbox(client?: Parameters<typeof query>[2]): Promise<AvailableMailbox | null> {
+async function getAvailableMailbox(
+  clientId?: string,
+  client?: Parameters<typeof query>[2]
+): Promise<AvailableMailbox | null> {
+  const conditions = [
+    `m.provider = 'google'`,
+    `m.is_active = true`,
+    `m.status = 'connected'`,
+    `COALESCE(today_sends.daily_send_count, '0')::int < m.daily_send_limit`
+  ];
+  const params: unknown[] = [];
+  appendClientScope(conditions, params, 'm.client_id', clientId);
+
   const result = await query<
     Mailbox & {
       last_sync_completed_at: string | null;
@@ -376,14 +405,11 @@ async function getAvailableMailbox(client?: Parameters<typeof query>[2]): Promis
           AND msa.status = 'sent'
           AND ${utcDayCondition('msa.attempted_at')}
       ) today_sends ON true
-      WHERE m.provider = 'google'
-        AND m.is_active = true
-        AND m.status = 'connected'
-        AND COALESCE(today_sends.daily_send_count, '0')::int < m.daily_send_limit
+      WHERE ${conditions.join(' AND ')}
       ORDER BY COALESCE(today_sends.daily_send_count, '0')::int ASC, m.last_send_at ASC NULLS FIRST, m.created_at ASC
       LIMIT 1
     `,
-    [],
+    params,
     client
   );
 
@@ -561,7 +587,7 @@ async function processSingleSendReadyLead(leadId: string, triggeredBy: string): 
     return { leadId, status: 'blocked', reason: 'Campaign daily send limit reached.' };
   }
 
-  const mailbox = await getAvailableMailbox();
+  const mailbox = await getAvailableMailbox(context.lead.client_id);
   if (!mailbox) {
     await blockLeadSend(context, 'No healthy active mailbox is currently available.', triggeredBy);
     return { leadId, status: 'blocked', reason: 'No mailbox available.' };
@@ -698,19 +724,27 @@ async function processSingleSendReadyLead(leadId: string, triggeredBy: string): 
 
 export async function processSendReadyLeads(
   limit = DEFAULT_SEND_READY_LIMIT,
-  triggeredBy = 'system'
+  triggeredBy = 'system',
+  clientId?: string
 ): Promise<ProcessSendReadyResult> {
+  const conditions = [
+    `l.status = 'send_ready'`,
+    `c.status = 'active'`
+  ];
+  const params: unknown[] = [];
+  appendClientScope(conditions, params, 'l.client_id', clientId);
+  params.push(limit);
+
   const leadsResult = await query<{ id: string }>(
     `
       SELECT l.id
       FROM leads l
       INNER JOIN campaigns c ON c.id = l.campaign_id
-      WHERE l.status = 'send_ready'
-        AND c.status = 'active'
+      WHERE ${conditions.join(' AND ')}
       ORDER BY l.reviewed_at ASC NULLS LAST, l.created_at ASC
-      LIMIT $1
+      LIMIT $${params.length}
     `,
-    [limit]
+    params
   );
 
   const summary: ProcessSendReadyResult = {
@@ -752,14 +786,15 @@ export async function processSendReadyLeads(
 
 export async function runScheduledMailboxSync(
   limit = DEFAULT_SYNC_JOB_LIMIT,
-  triggeredBy = 'system'
+  triggeredBy = 'system',
+  clientId?: string
 ): Promise<{
   attempted: number;
   succeeded: number;
   failed: number;
   results: Array<{ mailboxId: string; status: 'synced' | 'failed'; message?: string }>;
 }> {
-  const mailboxes = await listMailboxes();
+  const mailboxes = await listMailboxes(clientId);
   const activeMailboxes = mailboxes.filter(
     (mailbox) => mailbox.is_active && mailbox.status === 'connected'
   );

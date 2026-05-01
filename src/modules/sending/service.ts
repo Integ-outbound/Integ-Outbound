@@ -1,5 +1,6 @@
 import { DbClient, ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Campaign, Draft, Lead, SentMessage } from '../../db/types';
+import { appendClientScope } from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 export interface MarkSentInput {
@@ -71,6 +72,7 @@ async function scheduleNextStepInternal(
     `
       INSERT INTO leads (
         id,
+        client_id,
         company_id,
         contact_id,
         campaign_id,
@@ -85,14 +87,16 @@ async function scheduleNextStepInternal(
         $3,
         $4,
         $5,
-        'pending_review',
         $6,
-        $7::timestamptz + ($8 || ' days')::interval
+        'pending_review',
+        $7,
+        $8::timestamptz + ($9 || ' days')::interval
       )
       RETURNING *
     `,
     [
       generateId(),
+      lead.client_id,
       lead.company_id,
       lead.contact_id,
       lead.campaign_id,
@@ -123,7 +127,12 @@ async function scheduleNextStepInternal(
   return nextLead;
 }
 
-export async function getSendReadyQueue(limit: number): Promise<unknown[]> {
+export async function getSendReadyQueue(limit: number, clientId?: string): Promise<unknown[]> {
+  const conditions = [`l.status = 'send_ready'`];
+  const params: unknown[] = [];
+  appendClientScope(conditions, params, 'l.client_id', clientId);
+  params.push(limit);
+
   const result = await query(
     `
       SELECT
@@ -143,11 +152,11 @@ export async function getSendReadyQueue(limit: number): Promise<unknown[]> {
         ORDER BY d.created_at DESC
         LIMIT 1
       ) d ON true
-      WHERE l.status = 'send_ready'
+      WHERE ${conditions.join(' AND ')}
       ORDER BY l.reviewed_at ASC NULLS LAST, l.created_at ASC
-      LIMIT $1
+      LIMIT $${params.length}
     `,
-    [limit]
+    params
   );
 
   return result.rows;
@@ -184,6 +193,7 @@ export async function markSent(input: MarkSentInput, triggeredBy = 'operator'): 
       `
         INSERT INTO sent_messages (
           id,
+          client_id,
           lead_id,
           draft_id,
           contact_id,
@@ -197,11 +207,12 @@ export async function markSent(input: MarkSentInput, triggeredBy = 'operator'): 
           gmail_thread_id,
           delivery_status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `,
       [
         generateId(),
+        lead.client_id,
         lead.id,
         draft.id,
         lead.contact_id,
@@ -377,22 +388,57 @@ export async function getDailyStats(): Promise<{
   bouncesToday: number;
   queueDepth: number;
 }> {
+  return getDailyStatsForClient();
+}
+
+export async function getDailyStatsForClient(clientId?: string): Promise<{
+  sendsToday: number;
+  bouncesToday: number;
+  queueDepth: number;
+}> {
+  const sentConditions: string[] = ['sent_at::date = CURRENT_DATE'];
+  const sentParams: unknown[] = [];
+  appendClientScope(sentConditions, sentParams, 'client_id', clientId);
+
+  const queueConditions: string[] = [`status = 'send_ready'`];
+  const queueParams: unknown[] = [];
+  appendClientScope(queueConditions, queueParams, 'client_id', clientId);
+
+  const bouncedConditions: string[] = ['c.bounced_at::date = CURRENT_DATE'];
+  const bouncedParams: unknown[] = [];
+  if (clientId) {
+    bouncedParams.push(clientId);
+    bouncedConditions.push(
+      `EXISTS (
+        SELECT 1
+        FROM sent_messages sm
+        WHERE sm.contact_id = c.id
+          AND sm.client_id = $${bouncedParams.length}
+      )`
+    );
+  }
+
   const [sendsResult, bouncesResult, queueResult] = await Promise.all([
     query<{ count: string }>(
       `
         SELECT COUNT(*)::text AS count
         FROM sent_messages
-        WHERE sent_at::date = CURRENT_DATE
-      `
+        WHERE ${sentConditions.join(' AND ')}
+      `,
+      sentParams
     ),
     query<{ count: string }>(
       `
         SELECT COUNT(*)::text AS count
-        FROM contacts
-        WHERE bounced_at::date = CURRENT_DATE
-      `
+        FROM contacts c
+        WHERE ${bouncedConditions.join(' AND ')}
+      `,
+      bouncedParams
     ),
-    query<{ count: string }>("SELECT COUNT(*)::text AS count FROM leads WHERE status = 'send_ready'")
+    query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM leads WHERE ${queueConditions.join(' AND ')}`,
+      queueParams
+    )
   ]);
 
   return {

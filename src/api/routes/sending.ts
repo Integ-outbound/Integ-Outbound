@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { asyncHandler, parseWithSchema } from '../utils';
 import {
   getDailyStats,
+  getDailyStatsForClient,
   getSendReadyQueue,
   markBounced,
   markSent
@@ -13,6 +14,7 @@ import { processSendReadyLeads } from '../../modules/mailboxes/operations';
 const router = Router();
 
 const queueQuerySchema = z.object({
+  client_id: z.string().uuid().optional(),
   limit: z.coerce.number().int().positive().default(50)
 });
 
@@ -32,14 +34,19 @@ const markBouncedBodySchema = z.object({
 });
 
 const processSendReadyBodySchema = z.object({
+  client_id: z.string().uuid().optional(),
   limit: z.number().int().positive().max(100).optional()
+});
+
+const statsQuerySchema = z.object({
+  client_id: z.string().uuid().optional()
 });
 
 router.get(
   '/sending/queue',
   asyncHandler(async (req, res) => {
     const query = parseWithSchema(queueQuerySchema, req.query, 'Invalid sending queue query.');
-    const queue = await getSendReadyQueue(query.limit ?? 50);
+    const queue = await getSendReadyQueue(query.limit ?? 50, query.client_id);
     res.status(200).json(queue);
   })
 );
@@ -70,15 +77,16 @@ router.post(
       req.body ?? {},
       'Invalid process-send-ready payload.'
     );
-    const result = await processSendReadyLeads(body.limit ?? 10, 'operator');
+    const result = await processSendReadyLeads(body.limit ?? 10, 'operator', body.client_id);
     res.status(200).json(result);
   })
 );
 
 router.get(
   '/sending/stats',
-  asyncHandler(async (_req, res) => {
-    const stats = await getDailyStats();
+  asyncHandler(async (req, res) => {
+    const query = parseWithSchema(statsQuerySchema, req.query, 'Invalid sending stats query.');
+    const stats = query.client_id ? await getDailyStatsForClient(query.client_id) : await getDailyStats();
     res.status(200).json(stats);
   })
 );

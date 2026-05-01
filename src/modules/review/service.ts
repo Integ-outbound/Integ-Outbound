@@ -1,15 +1,20 @@
 import { query, withTransaction } from '../../db/client';
 import { Lead } from '../../db/types';
+import { appendClientScope } from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 export interface ReviewQueueFilters {
+  client_id?: string;
   campaign_id?: string;
   min_icp_score?: number;
+  limit?: number;
 }
 
 export async function getReviewQueue(filters: ReviewQueueFilters): Promise<unknown[]> {
   const conditions = [`l.status = 'pending_review'`];
   const params: unknown[] = [];
+
+  appendClientScope(conditions, params, 'l.client_id', filters.client_id);
 
   if (filters.campaign_id) {
     params.push(filters.campaign_id);
@@ -20,6 +25,9 @@ export async function getReviewQueue(filters: ReviewQueueFilters): Promise<unkno
     params.push(filters.min_icp_score);
     conditions.push(`COALESCE(l.icp_score_at_creation, 0) >= $${params.length}`);
   }
+
+  const limit = filters.limit ?? 50;
+  params.push(limit);
 
   const result = await query(
     `
@@ -40,6 +48,7 @@ export async function getReviewQueue(filters: ReviewQueueFilters): Promise<unkno
       ) d ON true
       WHERE ${conditions.join(' AND ')}
       ORDER BY COALESCE(l.icp_score_at_creation, 0) DESC, l.created_at ASC
+      LIMIT $${params.length}
     `,
     params
   );
@@ -52,24 +61,52 @@ export async function getReviewStats(): Promise<{
   rejectionReasons: Record<string, number>;
   averageReviewTimeSeconds: number;
 }> {
+  return getReviewStatsForClient();
+}
+
+export async function getReviewStatsForClient(clientId?: string): Promise<{
+  countsByStatus: Record<string, number>;
+  rejectionReasons: Record<string, number>;
+  averageReviewTimeSeconds: number;
+}> {
+  const countsConditions: string[] = [];
+  const countsParams: unknown[] = [];
+  appendClientScope(countsConditions, countsParams, 'client_id', clientId);
+
+  const rejectionConditions: string[] = ['rejection_reason IS NOT NULL'];
+  const rejectionParams: unknown[] = [];
+  appendClientScope(rejectionConditions, rejectionParams, 'client_id', clientId);
+
+  const averageConditions: string[] = ['reviewed_at IS NOT NULL'];
+  const averageParams: unknown[] = [];
+  appendClientScope(averageConditions, averageParams, 'client_id', clientId);
+
+  const countsWhere = countsConditions.length > 0 ? `WHERE ${countsConditions.join(' AND ')}` : '';
+  const rejectionWhere =
+    rejectionConditions.length > 0 ? `WHERE ${rejectionConditions.join(' AND ')}` : '';
+  const averageWhere = averageConditions.length > 0 ? `WHERE ${averageConditions.join(' AND ')}` : '';
+
   const [countsResult, rejectionResult, averageResult] = await Promise.all([
     query<{ status: string; count: string }>(
-      'SELECT status, COUNT(*)::text AS count FROM leads GROUP BY status'
+      `SELECT status, COUNT(*)::text AS count FROM leads ${countsWhere} GROUP BY status`,
+      countsParams
     ),
     query<{ rejection_reason: string; count: string }>(
       `
         SELECT rejection_reason, COUNT(*)::text AS count
         FROM leads
-        WHERE rejection_reason IS NOT NULL
+        ${rejectionWhere}
         GROUP BY rejection_reason
-      `
+      `,
+      rejectionParams
     ),
     query<{ average_seconds: number | null }>(
       `
         SELECT AVG(EXTRACT(EPOCH FROM (reviewed_at - created_at))) AS average_seconds
         FROM leads
-        WHERE reviewed_at IS NOT NULL
-      `
+        ${averageWhere}
+      `,
+      averageParams
     )
   ]);
 

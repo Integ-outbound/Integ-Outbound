@@ -5,6 +5,8 @@ import { gmail_v1, google } from 'googleapis';
 import { HttpError } from '../../api/utils';
 import { ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Mailbox, MailboxOauthToken } from '../../db/types';
+import { ensureClientExists } from '../clients/service';
+import { canReassignOwnedRecord, resolveClientId } from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 const GOOGLE_PROVIDER = 'google';
@@ -17,6 +19,7 @@ const DEFAULT_GMAIL_SCOPES = [
 
 interface GoogleOAuthStatePayload {
   provider: typeof GOOGLE_PROVIDER;
+  clientId: string;
   nonce: string;
   issuedAt: number;
 }
@@ -151,9 +154,10 @@ function signStatePayload(encodedPayload: string): Buffer {
   return createHmac('sha256', getOAuthStateSecret()).update(encodedPayload).digest();
 }
 
-function createOAuthState(): string {
+function createOAuthState(clientId?: string): string {
   const payload: GoogleOAuthStatePayload = {
     provider: GOOGLE_PROVIDER,
+    clientId: resolveClientId(clientId),
     nonce: generateId(),
     issuedAt: Date.now()
   };
@@ -318,12 +322,34 @@ export function startGoogleOAuth(): GoogleOAuthStartResult {
   };
 }
 
+export async function startGoogleOAuthForClient(
+  clientId?: string
+): Promise<GoogleOAuthStartResult> {
+  const client = await ensureClientExists(clientId);
+  const config = getGoogleConfig();
+  const state = createOAuthState(client.id);
+  const oauthClient = createOAuthClient();
+  const authorizationUrl = oauthClient.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: config.scopes,
+    state
+  });
+
+  return {
+    authorizationUrl,
+    state,
+    scopes: config.scopes
+  };
+}
+
 export async function handleGoogleOAuthCallback(
   code: string,
   state: string,
   triggeredBy = 'operator'
 ): Promise<GoogleOAuthCallbackResult> {
-  validateOAuthState(state);
+  const oauthState = validateOAuthState(state);
+  await ensureClientExists(oauthState.clientId);
 
   const oauthClient = createOAuthClient();
   const tokenResponse = await oauthClient.getToken(code);
@@ -333,10 +359,34 @@ export async function handleGoogleOAuthCallback(
   const profile = await fetchGmailProfile(oauthClient);
 
   const result = await withTransaction(async (client) => {
+    const existingMailboxResult = await query<Mailbox>(
+      `
+        SELECT *
+        FROM mailboxes
+        WHERE provider = $1
+          AND email = $2
+        LIMIT 1
+      `,
+      [GOOGLE_PROVIDER, profile.emailAddress.toLowerCase()],
+      client
+    );
+    const existingMailbox = existingMailboxResult.rows[0] ?? null;
+    if (
+      existingMailbox &&
+      !canReassignOwnedRecord(existingMailbox.client_id, oauthState.clientId) &&
+      existingMailbox.client_id !== oauthState.clientId
+    ) {
+      throw new HttpError(
+        409,
+        `Mailbox ${existingMailbox.email} is already assigned to a different client.`
+      );
+    }
+
     const mailboxResult = await query<MailboxUpsertResult>(
       `
         INSERT INTO mailboxes (
           id,
+          client_id,
           provider,
           email,
           display_name,
@@ -345,9 +395,10 @@ export async function handleGoogleOAuthCallback(
           threads_total,
           last_connected_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
         ON CONFLICT (provider, email)
         DO UPDATE SET
+          client_id = EXCLUDED.client_id,
           display_name = EXCLUDED.display_name,
           gmail_history_id = EXCLUDED.gmail_history_id,
           messages_total = EXCLUDED.messages_total,
@@ -358,6 +409,7 @@ export async function handleGoogleOAuthCallback(
       `,
       [
         generateId(),
+        oauthState.clientId,
         GOOGLE_PROVIDER,
         profile.emailAddress.toLowerCase(),
         null,

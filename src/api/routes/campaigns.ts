@@ -14,6 +14,7 @@ const router = Router();
 const campaignStatusSchema = z.enum(['draft', 'active', 'paused', 'archived']);
 
 const createCampaignBodySchema = z.object({
+  client_id: z.string().uuid().optional(),
   name: z.string().trim().min(1),
   angle: z.string().trim().min(1),
   persona: z.string().trim().min(1),
@@ -26,6 +27,7 @@ const createCampaignBodySchema = z.object({
 });
 
 const listCampaignQuerySchema = z.object({
+  client_id: z.string().uuid().optional(),
   status: campaignStatusSchema.optional()
 });
 

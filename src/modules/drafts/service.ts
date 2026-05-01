@@ -101,6 +101,7 @@ async function getLeadContextByLeadId(leadId: string, client?: DbClient): Promis
   return {
     lead: {
       id: row.id,
+      client_id: row.client_id,
       company_id: row.company_id,
       contact_id: row.contact_id,
       campaign_id: row.campaign_id,

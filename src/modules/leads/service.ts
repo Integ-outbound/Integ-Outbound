@@ -1,6 +1,7 @@
 import { HttpError } from '../../api/utils';
 import { ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Campaign, Company, Contact, Draft, Lead } from '../../db/types';
+import { appendClientScope } from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 export interface CreateLeadInput {
@@ -12,6 +13,7 @@ export interface CreateLeadInput {
 }
 
 export interface LeadFilters {
+  client_id?: string;
   campaign_id?: string;
   company_id?: string;
   contact_id?: string;
@@ -108,7 +110,7 @@ export async function createLead(
   return withTransaction(async (client) => {
     const company = await getCompanyForLead(data.company_id, client);
     const contact = await getContactForLead(data.contact_id, client);
-    await getCampaignForLead(data.campaign_id, client);
+    const campaign = await getCampaignForLead(data.campaign_id, client);
 
     if (contact.company_id !== company.id) {
       throw new HttpError(400, 'The contact does not belong to the selected company.');
@@ -140,6 +142,7 @@ export async function createLead(
       `
         INSERT INTO leads (
           id,
+          client_id,
           company_id,
           contact_id,
           campaign_id,
@@ -148,11 +151,12 @@ export async function createLead(
           sequence_step,
           next_step_at
         )
-        VALUES ($1, $2, $3, $4, $5, 'pending_review', 1, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, 'pending_review', 1, $7)
         RETURNING *
       `,
       [
         generateId(),
+        campaign.client_id,
         data.company_id,
         data.contact_id,
         data.campaign_id,
@@ -169,6 +173,7 @@ export async function createLead(
         entityType: 'lead',
         entityId: lead.id,
         payload: {
+          client_id: lead.client_id,
           company_id: lead.company_id,
           contact_id: lead.contact_id,
           campaign_id: lead.campaign_id,
@@ -186,6 +191,8 @@ export async function createLead(
 export async function listLeads(filters: LeadFilters): Promise<unknown[]> {
   const conditions: string[] = [];
   const params: unknown[] = [];
+
+  appendClientScope(conditions, params, 'l.client_id', filters.client_id);
 
   if (filters.campaign_id) {
     params.push(filters.campaign_id);

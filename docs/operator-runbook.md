@@ -8,20 +8,22 @@ This backend is designed for an internal operator-led outbound workflow.
 2. Create or update the active ICP.
 3. Score companies and review the shortlist.
 4. Create contacts and verify them.
-5. Create a campaign.
-6. Create leads for campaign + company + contact combinations.
-7. Enrich target companies when needed.
-8. Generate drafts.
-9. Review drafts:
+5. Create or select a client.
+6. Create a campaign for that client.
+7. Create leads for campaign + company + contact combinations.
+8. Enrich target companies when needed.
+9. Generate drafts.
+10. Review drafts:
    - approve
    - reject
    - edit
-10. Pull the send-ready queue.
-11. Send through your external sending infrastructure.
-12. Mark messages as sent or bounced.
-13. Ingest replies.
-14. Handle or route replies.
-15. Log outcomes.
+11. Pull the send-ready queue.
+12. Send through your external sending infrastructure.
+13. Mark messages as sent or bounced.
+14. Ingest replies.
+15. Review suggested replies when the system routes an inbound message to human review.
+16. Handle or route replies.
+17. Log outcomes.
 
 ## Important Constraints
 
@@ -40,13 +42,19 @@ This backend is designed for an internal operator-led outbound workflow.
 - `POST /contacts`
 - `POST /contacts/:id/verify`
 - `POST /campaigns`
+- `GET /clients`
+- `POST /clients`
 - `POST /leads`
 - `POST /enrichment/:companyId`
 - `POST /drafts/generate/:leadId`
 - `POST /drafts/:draftId/approve`
+- `GET /operator/status`
+- `GET /operator/review`
 - `GET /sending/queue`
 - `POST /sending/mark-sent`
 - `POST /replies/ingest`
+- `POST /replies/:id/suggested-reply`
+- `POST /replies/:id/review-response`
 - `POST /replies/:id/handled`
 - `POST /outcomes`
 
@@ -57,6 +65,8 @@ All protected routes require:
 ```text
 x-api-key: your_internal_api_key
 ```
+
+Client-scoped queues and operator endpoints also accept an optional `client_id` to isolate review, send, mailbox, and reply work per client.
 
 Only `/health` and `/ready` are public.
 Only `/ready` is public. `/health` is protected because it contains operational counts.

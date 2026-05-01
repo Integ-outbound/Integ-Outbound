@@ -43,6 +43,7 @@ const createLeadBodySchema = z.object({
 });
 
 const leadQuerySchema = z.object({
+  client_id: z.string().uuid().optional(),
   campaign_id: z.string().uuid().optional(),
   company_id: z.string().uuid().optional(),
   contact_id: z.string().uuid().optional(),

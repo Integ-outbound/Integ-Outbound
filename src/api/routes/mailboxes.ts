@@ -5,7 +5,7 @@ import { asyncHandler, HttpError, parseWithSchema } from '../utils';
 import {
   handleGoogleOAuthCallback,
   sendMailboxTestEmail,
-  startGoogleOAuth
+  startGoogleOAuthForClient
 } from '../../modules/mailboxes/service';
 import {
   getMailboxStatus,
@@ -16,7 +16,9 @@ import { syncMailbox } from '../../modules/mailboxes/sync';
 const publicMailboxesRouter = Router();
 const router = Router();
 
-const emptyQuerySchema = z.object({});
+const mailboxListQuerySchema = z.object({
+  client_id: z.string().uuid().optional()
+});
 
 const oauthCallbackQuerySchema = z.object({
   code: z.string().trim().min(1).optional(),
@@ -71,8 +73,9 @@ publicMailboxesRouter.get(
 
 router.get(
   '/mailboxes',
-  asyncHandler(async (_req, res) => {
-    const mailboxes = await listMailboxes();
+  asyncHandler(async (req, res) => {
+    const query = parseWithSchema(mailboxListQuerySchema, req.query, 'Invalid mailbox list query.');
+    const mailboxes = await listMailboxes(query.client_id);
     res.status(200).json(mailboxes);
   })
 );
@@ -81,7 +84,8 @@ router.get(
   '/mailboxes/:id',
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(mailboxIdParamsSchema, req.params, 'Invalid mailbox id.');
-    const mailbox = await getMailboxStatus(params.id);
+    const query = parseWithSchema(mailboxListQuerySchema, req.query, 'Invalid mailbox status query.');
+    const mailbox = await getMailboxStatus(params.id, query.client_id);
     if (!mailbox) {
       res.status(404).json({ message: 'Mailbox not found.' });
       return;
@@ -94,8 +98,8 @@ router.get(
 router.get(
   '/mailboxes/google/oauth/start',
   asyncHandler(async (req, res) => {
-    parseWithSchema(emptyQuerySchema, req.query, 'Invalid Google OAuth start query.');
-    const result = startGoogleOAuth();
+    const query = parseWithSchema(mailboxListQuerySchema, req.query, 'Invalid Google OAuth start query.');
+    const result = await startGoogleOAuthForClient(query.client_id);
     res.status(200).json(result);
   })
 );

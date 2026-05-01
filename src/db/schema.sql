@@ -55,8 +55,27 @@ CREATE TABLE IF NOT EXISTS contacts (
   updated_at timestamptz NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS clients (
+  id uuid PRIMARY KEY,
+  slug text NOT NULL UNIQUE,
+  name text NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO clients (id, slug, name, is_active)
+VALUES (
+  '00000000-0000-0000-0000-000000000001',
+  'default',
+  'Default Client',
+  true
+)
+ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS campaigns (
   id uuid PRIMARY KEY,
+  client_id uuid NOT NULL REFERENCES clients(id),
   name text NOT NULL,
   angle text NOT NULL,
   persona text NOT NULL,
@@ -72,6 +91,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
 
 CREATE TABLE IF NOT EXISTS leads (
   id uuid PRIMARY KEY,
+  client_id uuid NOT NULL REFERENCES clients(id),
   company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
   campaign_id uuid NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
@@ -120,17 +140,15 @@ CREATE TABLE IF NOT EXISTS drafts (
 
 CREATE TABLE IF NOT EXISTS sent_messages (
   id uuid PRIMARY KEY,
+  client_id uuid NOT NULL REFERENCES clients(id),
   lead_id uuid NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
   draft_id uuid NOT NULL REFERENCES drafts(id) ON DELETE CASCADE,
   contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-  mailbox_id uuid REFERENCES mailboxes(id) ON DELETE SET NULL,
   from_address text,
   subject text,
   body text,
   sending_provider text,
   sent_at timestamptz,
-  gmail_message_id text,
-  gmail_thread_id text,
   delivery_status text NOT NULL CHECK (
     delivery_status IN ('queued', 'sent', 'delivered', 'bounced', 'failed')
   ),
@@ -141,6 +159,7 @@ CREATE TABLE IF NOT EXISTS sent_messages (
 
 CREATE TABLE IF NOT EXISTS replies (
   id uuid PRIMARY KEY,
+  client_id uuid NOT NULL REFERENCES clients(id),
   sent_message_id uuid NOT NULL REFERENCES sent_messages(id) ON DELETE CASCADE,
   contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
   company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -164,7 +183,18 @@ CREATE TABLE IF NOT EXISTS replies (
     routing_decision IS NULL OR routing_decision IN ('auto_handled', 'human_review', 'escalated')
   ),
   operator_action text,
+  suggested_response_subject text,
   suggested_response text,
+  suggested_response_model text,
+  suggested_response_generated_at timestamptz,
+  reviewed_response_subject text,
+  reviewed_response_body text,
+  reviewed_response_status text CHECK (
+    reviewed_response_status IS NULL OR reviewed_response_status IN ('approved', 'edited', 'rejected')
+  ),
+  reviewed_response_notes text,
+  reviewed_by text,
+  reviewed_at timestamptz,
   handled boolean NOT NULL DEFAULT false,
   handled_at timestamptz,
   received_at timestamptz,
@@ -234,6 +264,7 @@ CREATE TABLE IF NOT EXISTS import_batches (
 
 CREATE TABLE IF NOT EXISTS mailboxes (
   id uuid PRIMARY KEY,
+  client_id uuid NOT NULL REFERENCES clients(id),
   provider text NOT NULL CHECK (provider IN ('google')),
   email text NOT NULL,
   display_name text,
@@ -384,6 +415,57 @@ ALTER TABLE contacts
 ALTER TABLE campaigns
   ADD COLUMN IF NOT EXISTS daily_send_limit integer CHECK (daily_send_limit IS NULL OR daily_send_limit >= 1);
 
+ALTER TABLE campaigns
+  ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id);
+
+UPDATE campaigns
+SET client_id = '00000000-0000-0000-0000-000000000001'
+WHERE client_id IS NULL;
+
+ALTER TABLE campaigns
+  ALTER COLUMN client_id SET DEFAULT '00000000-0000-0000-0000-000000000001';
+
+ALTER TABLE campaigns
+  ALTER COLUMN client_id SET NOT NULL;
+
+ALTER TABLE leads
+  ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id);
+
+UPDATE leads l
+SET client_id = COALESCE(c.client_id, '00000000-0000-0000-0000-000000000001')
+FROM campaigns c
+WHERE l.campaign_id = c.id
+  AND l.client_id IS NULL;
+
+UPDATE leads
+SET client_id = '00000000-0000-0000-0000-000000000001'
+WHERE client_id IS NULL;
+
+ALTER TABLE leads
+  ALTER COLUMN client_id SET DEFAULT '00000000-0000-0000-0000-000000000001';
+
+ALTER TABLE leads
+  ALTER COLUMN client_id SET NOT NULL;
+
+ALTER TABLE sent_messages
+  ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id);
+
+UPDATE sent_messages sm
+SET client_id = COALESCE(l.client_id, '00000000-0000-0000-0000-000000000001')
+FROM leads l
+WHERE sm.lead_id = l.id
+  AND sm.client_id IS NULL;
+
+UPDATE sent_messages
+SET client_id = '00000000-0000-0000-0000-000000000001'
+WHERE client_id IS NULL;
+
+ALTER TABLE sent_messages
+  ALTER COLUMN client_id SET DEFAULT '00000000-0000-0000-0000-000000000001';
+
+ALTER TABLE sent_messages
+  ALTER COLUMN client_id SET NOT NULL;
+
 ALTER TABLE sent_messages
   ADD COLUMN IF NOT EXISTS mailbox_id uuid REFERENCES mailboxes(id) ON DELETE SET NULL;
 
@@ -392,6 +474,19 @@ ALTER TABLE sent_messages
 
 ALTER TABLE sent_messages
   ADD COLUMN IF NOT EXISTS gmail_thread_id text;
+
+ALTER TABLE mailboxes
+  ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id);
+
+UPDATE mailboxes
+SET client_id = '00000000-0000-0000-0000-000000000001'
+WHERE client_id IS NULL;
+
+ALTER TABLE mailboxes
+  ALTER COLUMN client_id SET DEFAULT '00000000-0000-0000-0000-000000000001';
+
+ALTER TABLE mailboxes
+  ALTER COLUMN client_id SET NOT NULL;
 
 ALTER TABLE mailboxes
   ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
@@ -411,6 +506,54 @@ ALTER TABLE mailboxes
 ALTER TABLE mailboxes
   ADD COLUMN IF NOT EXISTS last_send_at timestamptz;
 
+ALTER TABLE replies
+  ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id);
+
+UPDATE replies r
+SET client_id = COALESCE(sm.client_id, '00000000-0000-0000-0000-000000000001')
+FROM sent_messages sm
+WHERE r.sent_message_id = sm.id
+  AND r.client_id IS NULL;
+
+UPDATE replies
+SET client_id = '00000000-0000-0000-0000-000000000001'
+WHERE client_id IS NULL;
+
+ALTER TABLE replies
+  ALTER COLUMN client_id SET DEFAULT '00000000-0000-0000-0000-000000000001';
+
+ALTER TABLE replies
+  ALTER COLUMN client_id SET NOT NULL;
+
+ALTER TABLE replies
+  ADD COLUMN IF NOT EXISTS suggested_response_subject text;
+
+ALTER TABLE replies
+  ADD COLUMN IF NOT EXISTS suggested_response_model text;
+
+ALTER TABLE replies
+  ADD COLUMN IF NOT EXISTS suggested_response_generated_at timestamptz;
+
+ALTER TABLE replies
+  ADD COLUMN IF NOT EXISTS reviewed_response_subject text;
+
+ALTER TABLE replies
+  ADD COLUMN IF NOT EXISTS reviewed_response_body text;
+
+ALTER TABLE replies
+  ADD COLUMN IF NOT EXISTS reviewed_response_status text CHECK (
+    reviewed_response_status IS NULL OR reviewed_response_status IN ('approved', 'edited', 'rejected')
+  );
+
+ALTER TABLE replies
+  ADD COLUMN IF NOT EXISTS reviewed_response_notes text;
+
+ALTER TABLE replies
+  ADD COLUMN IF NOT EXISTS reviewed_by text;
+
+ALTER TABLE replies
+  ADD COLUMN IF NOT EXISTS reviewed_at timestamptz;
+
 CREATE INDEX IF NOT EXISTS idx_companies_domain ON companies(domain);
 CREATE INDEX IF NOT EXISTS idx_companies_industry ON companies(industry);
 CREATE INDEX IF NOT EXISTS idx_companies_country ON companies(country);
@@ -425,15 +568,20 @@ CREATE INDEX IF NOT EXISTS idx_contacts_title ON contacts(title);
 CREATE INDEX IF NOT EXISTS idx_contacts_opted_out ON contacts(opted_out);
 CREATE INDEX IF NOT EXISTS idx_contacts_bounced ON contacts(bounced);
 CREATE INDEX IF NOT EXISTS idx_contacts_last_seen_at ON contacts(last_seen_at);
+CREATE INDEX IF NOT EXISTS idx_campaigns_client_id ON campaigns(client_id);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
+CREATE INDEX IF NOT EXISTS idx_leads_client_id_status ON leads(client_id, status);
 CREATE INDEX IF NOT EXISTS idx_leads_campaign_id ON leads(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_replies_classification ON replies(classification);
+CREATE INDEX IF NOT EXISTS idx_replies_client_id_handled ON replies(client_id, handled);
 CREATE INDEX IF NOT EXISTS idx_sent_messages_sent_at ON sent_messages(sent_at);
+CREATE INDEX IF NOT EXISTS idx_sent_messages_client_id ON sent_messages(client_id);
 CREATE INDEX IF NOT EXISTS idx_outcomes_outcome_type ON outcomes(outcome_type);
 CREATE INDEX IF NOT EXISTS idx_import_batches_status_started_at ON import_batches(status, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_company_sources_source_batch_id ON company_sources(source_batch_id);
 CREATE INDEX IF NOT EXISTS idx_contact_sources_source_batch_id ON contact_sources(source_batch_id);
 CREATE INDEX IF NOT EXISTS idx_mailboxes_provider_email ON mailboxes(provider, email);
+CREATE INDEX IF NOT EXISTS idx_mailboxes_client_id ON mailboxes(client_id);
 CREATE INDEX IF NOT EXISTS idx_mailbox_oauth_tokens_mailbox_id ON mailbox_oauth_tokens(mailbox_id);
 CREATE INDEX IF NOT EXISTS idx_sent_messages_gmail_message_id ON sent_messages(gmail_message_id);
 CREATE INDEX IF NOT EXISTS idx_sent_messages_gmail_thread_id ON sent_messages(gmail_thread_id);
@@ -469,6 +617,13 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'campaigns_set_updated_at') THEN
     CREATE TRIGGER campaigns_set_updated_at
     BEFORE UPDATE ON campaigns
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'clients_set_updated_at') THEN
+    CREATE TRIGGER clients_set_updated_at
+    BEFORE UPDATE ON clients
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
   END IF;

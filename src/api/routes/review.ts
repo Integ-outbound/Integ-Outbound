@@ -5,14 +5,21 @@ import { asyncHandler, parseWithSchema } from '../utils';
 import {
   bulkReject,
   getReviewQueue,
-  getReviewStats
+  getReviewStats,
+  getReviewStatsForClient
 } from '../../modules/review/service';
 
 const router = Router();
 
 const queueQuerySchema = z.object({
+  client_id: z.string().uuid().optional(),
   campaign_id: z.string().uuid().optional(),
-  min_icp_score: z.coerce.number().min(0).max(1).optional()
+  min_icp_score: z.coerce.number().min(0).max(1).optional(),
+  limit: z.coerce.number().int().positive().max(200).optional()
+});
+
+const statsQuerySchema = z.object({
+  client_id: z.string().uuid().optional()
 });
 
 const bulkRejectBodySchema = z.object({
@@ -39,8 +46,9 @@ router.get(
 
 router.get(
   '/review/stats',
-  asyncHandler(async (_req, res) => {
-    const stats = await getReviewStats();
+  asyncHandler(async (req, res) => {
+    const query = parseWithSchema(statsQuerySchema, req.query, 'Invalid review stats query.');
+    const stats = query.client_id ? await getReviewStatsForClient(query.client_id) : await getReviewStats();
     res.status(200).json(stats);
   })
 );

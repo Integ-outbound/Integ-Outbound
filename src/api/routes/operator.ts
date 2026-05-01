@@ -1,0 +1,44 @@
+import { Router } from 'express';
+import { z } from 'zod';
+
+import { asyncHandler, parseWithSchema } from '../utils';
+import {
+  getOperatorReviewQueues,
+  getOperatorStatus
+} from '../../modules/operator/service';
+
+const router = Router();
+
+const statusQuerySchema = z.object({
+  client_id: z.string().uuid().optional()
+});
+
+const reviewQuerySchema = z.object({
+  client_id: z.string().uuid().optional(),
+  lead_limit: z.coerce.number().int().positive().max(200).optional(),
+  reply_limit: z.coerce.number().int().positive().max(200).optional()
+});
+
+router.get(
+  '/operator/status',
+  asyncHandler(async (req, res) => {
+    const query = parseWithSchema(statusQuerySchema, req.query, 'Invalid operator status query.');
+    const status = await getOperatorStatus(query.client_id);
+    res.status(200).json(status);
+  })
+);
+
+router.get(
+  '/operator/review',
+  asyncHandler(async (req, res) => {
+    const query = parseWithSchema(reviewQuerySchema, req.query, 'Invalid operator review query.');
+    const review = await getOperatorReviewQueues(
+      query.client_id,
+      query.lead_limit ?? 25,
+      query.reply_limit ?? 25
+    );
+    res.status(200).json(review);
+  })
+);
+
+export default router;

@@ -20,6 +20,18 @@ export interface DraftPromptInput {
   department: string | null;
 }
 
+export interface SuggestedReplyPromptInput {
+  classification: 'positive' | 'question' | 'referral' | 'neutral';
+  outboundSubject: string | null;
+  outboundBody: string | null;
+  replyContent: string;
+  companyName: string | null;
+  contactName: string | null;
+  contactTitle: string | null;
+  campaignAngle: string;
+  senderPersona: string;
+}
+
 export function buildEnrichmentPrompt(input: EnrichmentPromptInput): string {
   return [
     `Given this company: ${input.domain}, ${input.name ?? ''}, ${input.industry ?? ''}, ${input.employeeCount ?? ''}, ${input.country ?? ''}`,
@@ -77,6 +89,35 @@ export function buildReplyClassificationPrompt(replyContent: string): string {
     '  "reasoning": string (one sentence),',
     '  "suggested_response": string | null (only for positive, question, referral — draft a short suggested reply)',
     '}',
+    'Return ONLY valid JSON.'
+  ].join('\n');
+}
+
+export function buildSuggestedReplyPrompt(input: SuggestedReplyPromptInput): string {
+  return [
+    'Draft a human-review reply to an inbound response from a cold outbound thread.',
+    '',
+    `Inbound classification: ${input.classification}`,
+    `Sender persona: ${input.senderPersona}`,
+    `Campaign angle: ${input.campaignAngle}`,
+    `Company: ${input.companyName ?? ''}`,
+    `Contact: ${input.contactName ?? ''}`,
+    `Contact title: ${input.contactTitle ?? ''}`,
+    '',
+    'Original outbound message:',
+    `Subject: ${input.outboundSubject ?? ''}`,
+    input.outboundBody ?? '',
+    '',
+    'Inbound reply:',
+    input.replyContent,
+    '',
+    'Rules:',
+    '- Keep the tone professional and human.',
+    '- Do not overpromise or invent facts.',
+    '- Keep it concise and easy for an operator to review.',
+    '- If the reply asks a question, answer only with what is justified by the thread context.',
+    '- If the reply is neutral, draft a low-pressure follow-up that preserves optionality.',
+    '- Return JSON: { "subject": string, "body": string, "rationale": string }',
     'Return ONLY valid JSON.'
   ].join('\n');
 }

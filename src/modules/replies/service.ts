@@ -1,7 +1,12 @@
 import { HAIKU_MODEL, callHaiku, parseHaikuJson } from '../../ai/client';
-import { buildReplyClassificationPrompt } from '../../ai/prompts';
+import {
+  buildReplyClassificationPrompt,
+  buildSuggestedReplyPrompt
+} from '../../ai/prompts';
+import { HttpError } from '../../api/utils';
 import { DbClient, ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Reply, SentMessage } from '../../db/types';
+import { appendClientScope, shouldGenerateSuggestedReply } from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 export interface ReplyIngestInput {
@@ -17,6 +22,24 @@ interface ReplyClassificationPayload {
   suggested_response: string | null;
 }
 
+interface SuggestedReplyPayload {
+  subject: string;
+  body: string;
+  rationale: string;
+}
+
+export interface ReplyQueueFilters {
+  client_id?: string;
+  limit?: number;
+}
+
+export interface ReviewSuggestedReplyInput {
+  action: 'approved' | 'edited' | 'rejected';
+  subject?: string | null;
+  body?: string | null;
+  notes?: string | null;
+}
+
 async function getReply(replyId: string, client?: DbClient): Promise<Reply> {
   const result = await query<Reply>('SELECT * FROM replies WHERE id = $1', [replyId], client);
   const reply = result.rows[0];
@@ -30,8 +53,20 @@ async function getReply(replyId: string, client?: DbClient): Promise<Reply> {
 async function getSentMessage(
   sentMessageId: string,
   client?: DbClient
-): Promise<SentMessage & { company_id: string; campaign_id: string; sequence_step: number }> {
-  const result = await query<SentMessage & { company_id: string; campaign_id: string; sequence_step: number }>(
+): Promise<
+  SentMessage & {
+    company_id: string;
+    campaign_id: string;
+    sequence_step: number;
+  }
+> {
+  const result = await query<
+    SentMessage & {
+      company_id: string;
+      campaign_id: string;
+      sequence_step: number;
+    }
+  >(
     `
       SELECT sm.*, l.company_id, l.campaign_id, l.sequence_step
       FROM sent_messages sm
@@ -48,6 +83,69 @@ async function getSentMessage(
   }
 
   return sentMessage;
+}
+
+async function getReplySuggestionContext(
+  replyId: string,
+  client?: DbClient
+): Promise<{
+  reply: Reply;
+  sent_message: SentMessage;
+  campaign: { name: string; angle: string; persona: string };
+  company: { name: string | null };
+  contact: {
+    first_name: string | null;
+    last_name: string | null;
+    title: string | null;
+  };
+}> {
+  const result = await query<
+    Reply & {
+      sent_message: SentMessage;
+      campaign: { name: string; angle: string; persona: string };
+      company: { name: string | null };
+      contact: {
+        first_name: string | null;
+        last_name: string | null;
+        title: string | null;
+      };
+    }
+  >(
+    `
+      SELECT
+        r.*,
+        row_to_json(sm) AS sent_message,
+        row_to_json(cp) AS campaign,
+        row_to_json(co) AS company,
+        json_build_object(
+          'first_name', ct.first_name,
+          'last_name', ct.last_name,
+          'title', ct.title
+        ) AS contact
+      FROM replies r
+      INNER JOIN sent_messages sm ON sm.id = r.sent_message_id
+      INNER JOIN leads l ON l.id = sm.lead_id
+      INNER JOIN campaigns cp ON cp.id = l.campaign_id
+      INNER JOIN companies co ON co.id = r.company_id
+      INNER JOIN contacts ct ON ct.id = r.contact_id
+      WHERE r.id = $1
+    `,
+    [replyId],
+    client
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error(`Reply ${replyId} not found.`);
+  }
+
+  return {
+    reply: row,
+    sent_message: row.sent_message,
+    campaign: row.campaign,
+    company: row.company,
+    contact: row.contact
+  };
 }
 
 async function stopFutureSequenceSteps(
@@ -109,17 +207,19 @@ export async function ingestReply(
       `
         INSERT INTO replies (
           id,
+          client_id,
           sent_message_id,
           contact_id,
           company_id,
           raw_content,
           received_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `,
       [
         generateId(),
+        sentMessage.client_id,
         sentMessage.id,
         sentMessage.contact_id,
         sentMessage.company_id,
@@ -134,7 +234,10 @@ export async function ingestReply(
         eventType: 'reply.ingested',
         entityType: 'reply',
         entityId: ensureFound(result.rows[0], 'Reply insert failed.').id,
-        payload: { sent_message_id: sentMessage.id },
+        payload: {
+          client_id: sentMessage.client_id,
+          sent_message_id: sentMessage.id
+        },
         triggeredBy
       },
       client
@@ -222,7 +325,7 @@ export async function classifyReply(replyId: string, triggeredBy = 'system'): Pr
 }
 
 export async function routeReply(replyId: string, triggeredBy = 'system'): Promise<Reply> {
-  return withTransaction(async (client) => {
+  const routedReply = await withTransaction(async (client) => {
     const reply = await getReply(replyId, client);
     const sentMessage = await getSentMessage(reply.sent_message_id, client);
     const classification = reply.classification;
@@ -430,24 +533,122 @@ export async function routeReply(replyId: string, triggeredBy = 'system'): Promi
 
     return ensureFound(result.rows[0], `Reply routing failed for ${replyId}.`);
   });
+
+  if (shouldGenerateSuggestedReply(routedReply.classification, routedReply.routing_decision)) {
+    try {
+      return await generateSuggestedReply(replyId, triggeredBy);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await logEvent({
+        eventType: 'reply.suggested_response_generation_failed',
+        entityType: 'reply',
+        entityId: replyId,
+        payload: { error: message },
+        triggeredBy
+      });
+    }
+  }
+
+  return routedReply;
 }
 
-export async function getUnhandledReplies(): Promise<unknown[]> {
+export async function generateSuggestedReply(
+  replyId: string,
+  triggeredBy = 'operator'
+): Promise<Reply> {
+  const context = await getReplySuggestionContext(replyId);
+  const classification = context.reply.classification;
+  if (
+    !classification ||
+    !shouldGenerateSuggestedReply(classification, context.reply.routing_decision)
+  ) {
+    throw new HttpError(
+      409,
+      `Reply ${replyId} is not eligible for suggested reply generation.`
+    );
+  }
+
+  const contactName = [context.contact.first_name, context.contact.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  const prompt = buildSuggestedReplyPrompt({
+    classification: classification as 'positive' | 'question' | 'referral' | 'neutral',
+    outboundSubject: context.sent_message.subject,
+    outboundBody: context.sent_message.body,
+    replyContent: context.reply.raw_content,
+    companyName: context.company.name,
+    contactName: contactName || null,
+    contactTitle: context.contact.title,
+    campaignAngle: context.campaign.angle,
+    senderPersona: context.campaign.persona
+  });
+  const raw = await callHaiku(prompt);
+  const generated = parseHaikuJson<SuggestedReplyPayload>(raw, 'suggested reply generation');
+
+  return withTransaction(async (client) => {
+    const result = await query<Reply>(
+      `
+        UPDATE replies
+        SET
+          suggested_response_subject = $2,
+          suggested_response = $3,
+          suggested_response_model = $4,
+          suggested_response_generated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `,
+      [replyId, generated.subject.trim(), generated.body.trim(), HAIKU_MODEL],
+      client
+    );
+
+    await logEvent(
+      {
+        eventType: 'reply.suggested_response_generated',
+        entityType: 'reply',
+        entityId: replyId,
+        payload: {
+          rationale: generated.rationale,
+          model: HAIKU_MODEL
+        },
+        triggeredBy
+      },
+      client
+    );
+
+    return ensureFound(result.rows[0], `Suggested reply update failed for ${replyId}.`);
+  });
+}
+
+export async function getUnhandledReplies(filters: ReplyQueueFilters = {}): Promise<unknown[]> {
+  const conditions = [
+    `r.handled = false`,
+    `r.routing_decision = 'human_review'`
+  ];
+  const params: unknown[] = [];
+  appendClientScope(conditions, params, 'r.client_id', filters.client_id);
+  params.push(filters.limit ?? 50);
+
   const result = await query(
     `
       SELECT
         r.*,
         row_to_json(c) AS contact,
         row_to_json(co) AS company,
-        row_to_json(sm) AS sent_message
+        row_to_json(sm) AS sent_message,
+        row_to_json(cp) AS campaign
       FROM replies r
       INNER JOIN contacts c ON c.id = r.contact_id
       INNER JOIN companies co ON co.id = r.company_id
       INNER JOIN sent_messages sm ON sm.id = r.sent_message_id
-      WHERE r.handled = false
-        AND r.routing_decision = 'human_review'
+      INNER JOIN leads l ON l.id = sm.lead_id
+      INNER JOIN campaigns cp ON cp.id = l.campaign_id
+      WHERE ${conditions.join(' AND ')}
       ORDER BY r.received_at DESC NULLS LAST, r.created_at DESC
+      LIMIT $${params.length}
     `
+    ,
+    params
   );
 
   return result.rows;
@@ -487,5 +688,73 @@ export async function markHandled(
     );
 
     return reply;
+  });
+}
+
+export async function reviewSuggestedReply(
+  replyId: string,
+  input: ReviewSuggestedReplyInput,
+  triggeredBy = 'operator'
+): Promise<Reply> {
+  return withTransaction(async (client) => {
+    const reply = await getReply(replyId, client);
+    const subject =
+      input.subject?.trim() ||
+      (input.action === 'approved' ? reply.suggested_response_subject?.trim() : null);
+    const body =
+      input.body?.trim() ||
+      (input.action === 'approved' ? reply.suggested_response?.trim() : null);
+
+    if ((input.action === 'approved' || input.action === 'edited') && (!subject || !body)) {
+      throw new HttpError(
+        400,
+        'Reviewed reply approval requires both subject and body.'
+      );
+    }
+
+    const operatorAction = `reply_review_${input.action}`;
+    const result = await query<Reply>(
+      `
+        UPDATE replies
+        SET
+          reviewed_response_subject = $2,
+          reviewed_response_body = $3,
+          reviewed_response_status = $4,
+          reviewed_response_notes = $5,
+          reviewed_by = 'operator',
+          reviewed_at = NOW(),
+          handled = true,
+          handled_at = NOW(),
+          operator_action = $6
+        WHERE id = $1
+        RETURNING *
+      `,
+      [
+        replyId,
+        subject ?? null,
+        body ?? null,
+        input.action,
+        input.notes?.trim() ?? null,
+        operatorAction
+      ],
+      client
+    );
+
+    await logEvent(
+      {
+        eventType: 'reply.reviewed_response_recorded',
+        entityType: 'reply',
+        entityId: replyId,
+        payload: {
+          action: input.action,
+          has_subject: Boolean(subject),
+          has_body: Boolean(body)
+        },
+        triggeredBy
+      },
+      client
+    );
+
+    return ensureFound(result.rows[0], `Reply review save failed for ${replyId}.`);
   });
 }

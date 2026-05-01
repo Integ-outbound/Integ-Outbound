@@ -25,6 +25,7 @@ Use this checklist in local or staging before launch.
 - create company
 - create ICP
 - create contact
+- create client
 - verify contact
 - create campaign
 - create lead
@@ -33,6 +34,8 @@ Use this checklist in local or staging before launch.
 - confirm send-ready queue entry
 - mark sent
 - ingest reply
+- generate suggested reply
+- review suggested reply
 - handle reply
 - log outcome
 
@@ -56,6 +59,8 @@ Use this checklist in local or staging before launch.
 
 - review queue
 - review stats
+- operator status
+- operator review
 - sending stats
 - memory performance
 - draft quality

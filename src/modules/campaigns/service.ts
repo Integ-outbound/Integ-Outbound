@@ -1,9 +1,12 @@
 import { HttpError } from '../../api/utils';
 import { ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Campaign } from '../../db/types';
+import { ensureClientExists } from '../clients/service';
+import { appendClientScope } from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 export interface CreateCampaignInput {
+  client_id?: string;
   name: string;
   angle: string;
   persona: string;
@@ -28,6 +31,7 @@ export interface UpdateCampaignInput {
 }
 
 export interface CampaignFilters {
+  client_id?: string;
   status?: Campaign['status'];
 }
 
@@ -36,10 +40,12 @@ export async function createCampaign(
   triggeredBy = 'operator'
 ): Promise<Campaign> {
   return withTransaction(async (client) => {
+    const ownedClient = await ensureClientExists(data.client_id);
     const result = await query<Campaign>(
       `
         INSERT INTO campaigns (
           id,
+          client_id,
           name,
           angle,
           persona,
@@ -50,11 +56,12 @@ export async function createCampaign(
           status,
           prompt_version
         )
-        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11)
         RETURNING *
       `,
       [
         generateId(),
+        ownedClient.id,
         data.name,
         data.angle,
         data.persona,
@@ -75,6 +82,7 @@ export async function createCampaign(
         entityType: 'campaign',
         entityId: campaign.id,
         payload: {
+          client_id: campaign.client_id,
           status: campaign.status,
           sequence_steps: campaign.sequence_steps,
           sequence_delay_days: campaign.sequence_delay_days
@@ -91,6 +99,8 @@ export async function createCampaign(
 export async function listCampaigns(filters: CampaignFilters): Promise<Campaign[]> {
   const conditions: string[] = [];
   const params: unknown[] = [];
+
+  appendClientScope(conditions, params, 'client_id', filters.client_id);
 
   if (filters.status) {
     params.push(filters.status);
@@ -174,6 +184,7 @@ export async function updateCampaign(
         entityType: 'campaign',
         entityId: campaign.id,
         payload: {
+          client_id: campaign.client_id,
           status: campaign.status,
           sequence_steps: campaign.sequence_steps,
           sequence_delay_days: campaign.sequence_delay_days
