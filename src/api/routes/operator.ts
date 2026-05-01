@@ -3,7 +3,9 @@ import { z } from 'zod';
 
 import { asyncHandler, parseWithSchema } from '../utils';
 import {
+  getOperatorClientStatuses,
   getOperatorReviewQueues,
+  getOperatorSafety,
   getOperatorStatus
 } from '../../modules/operator/service';
 
@@ -38,6 +40,23 @@ router.get(
       query.reply_limit ?? 25
     );
     res.status(200).json(review);
+  })
+);
+
+router.get(
+  '/operator/clients',
+  asyncHandler(async (_req, res) => {
+    const clients = await getOperatorClientStatuses();
+    res.status(200).json(clients);
+  })
+);
+
+router.get(
+  '/operator/safety',
+  asyncHandler(async (req, res) => {
+    const query = parseWithSchema(statusQuerySchema, req.query, 'Invalid operator safety query.');
+    const safety = await getOperatorSafety(query.client_id);
+    res.status(200).json(safety);
   })
 );
 

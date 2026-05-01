@@ -2,6 +2,11 @@ export interface Client {
   id: string;
   slug: string;
   name: string;
+  company_domain: string | null;
+  operator_name: string | null;
+  operator_email: string | null;
+  service_type: string | null;
+  target_icp_notes: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

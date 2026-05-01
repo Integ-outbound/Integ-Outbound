@@ -20,6 +20,11 @@ const mailboxListQuerySchema = z.object({
   client_id: z.string().uuid().optional()
 });
 
+const oauthStartQuerySchema = z.object({
+  client_id: z.string().uuid(),
+  redirect_to: z.string().url().optional()
+});
+
 const oauthCallbackQuerySchema = z.object({
   code: z.string().trim().min(1).optional(),
   state: z.string().trim().min(1).optional(),
@@ -71,6 +76,15 @@ publicMailboxesRouter.get(
     }
 
     const result = await handleGoogleOAuthCallback(query.code, query.state);
+    if (result.redirectTo) {
+      const redirectUrl = new URL(result.redirectTo);
+      redirectUrl.searchParams.set('gmail', 'connected');
+      redirectUrl.searchParams.set('client_id', result.mailbox.client_id);
+      redirectUrl.searchParams.set('mailbox_id', result.mailbox.id);
+      res.redirect(302, redirectUrl.toString());
+      return;
+    }
+
     res.status(200).json(result);
   })
 );
@@ -102,8 +116,8 @@ router.get(
 router.get(
   '/mailboxes/google/oauth/start',
   asyncHandler(async (req, res) => {
-    const query = parseWithSchema(mailboxListQuerySchema, req.query, 'Invalid Google OAuth start query.');
-    const result = await startGoogleOAuthForClient(query.client_id);
+    const query = parseWithSchema(oauthStartQuerySchema, req.query, 'Invalid Google OAuth start query.');
+    const result = await startGoogleOAuthForClient(query.client_id, query.redirect_to);
     res.status(200).json(result);
   })
 );

@@ -59,6 +59,11 @@ CREATE TABLE IF NOT EXISTS clients (
   id uuid PRIMARY KEY,
   slug text NOT NULL UNIQUE,
   name text NOT NULL,
+  company_domain text,
+  operator_name text,
+  operator_email text,
+  service_type text,
+  target_icp_notes text,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT NOW(),
   updated_at timestamptz NOT NULL DEFAULT NOW()
@@ -415,6 +420,21 @@ ALTER TABLE contacts
 ALTER TABLE campaigns
   ADD COLUMN IF NOT EXISTS daily_send_limit integer CHECK (daily_send_limit IS NULL OR daily_send_limit >= 1);
 
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS company_domain text;
+
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS operator_name text;
+
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS operator_email text;
+
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS service_type text;
+
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS target_icp_notes text;
+
 ALTER TABLE campaigns
   ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id);
 
@@ -597,6 +617,9 @@ CREATE INDEX IF NOT EXISTS idx_inbound_message_processing_sent_message_id ON inb
 CREATE INDEX IF NOT EXISTS idx_mailbox_send_attempts_mailbox_attempted_at ON mailbox_send_attempts(mailbox_id, attempted_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mailbox_send_attempts_campaign_attempted_at ON mailbox_send_attempts(campaign_id, attempted_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mailbox_send_attempts_lead_id ON mailbox_send_attempts(lead_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_company_domain_unique
+  ON clients ((lower(company_domain)))
+  WHERE company_domain IS NOT NULL;
 
 DO $$
 BEGIN

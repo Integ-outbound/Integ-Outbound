@@ -26,6 +26,7 @@ const DEFAULT_GMAIL_SCOPES = [
 interface GoogleOAuthStatePayload {
   provider: typeof GOOGLE_PROVIDER;
   clientId: string;
+  redirectTo: string | null;
   nonce: string;
   issuedAt: number;
 }
@@ -59,6 +60,7 @@ export interface GoogleOAuthStartResult {
 export interface GoogleOAuthCallbackResult {
   mailbox: Mailbox;
   scopes: string[];
+  redirectTo?: string | null;
 }
 
 export interface TestSendInput {
@@ -173,10 +175,39 @@ function signStatePayload(encodedPayload: string): Buffer {
   return createHmac('sha256', getOAuthStateSecret()).update(encodedPayload).digest();
 }
 
-function createOAuthState(clientId?: string): string {
+function getFrontendBaseUrl(): URL | null {
+  const configured = process.env.FRONTEND_BASE_URL?.trim();
+  if (!configured) {
+    return null;
+  }
+
+  return new URL(configured);
+}
+
+function validateFrontendRedirectTarget(redirectTo?: string | null): string | null {
+  const value = redirectTo?.trim();
+  if (!value) {
+    return null;
+  }
+
+  const frontendBaseUrl = getFrontendBaseUrl();
+  if (!frontendBaseUrl) {
+    throw new Error('FRONTEND_BASE_URL is required when redirect_to is used for Gmail OAuth.');
+  }
+
+  const parsed = new URL(value);
+  if (parsed.origin !== frontendBaseUrl.origin) {
+    throw new HttpError(400, 'redirect_to must match the configured frontend origin.');
+  }
+
+  return parsed.toString();
+}
+
+function createOAuthState(clientId: string, redirectTo?: string | null): string {
   const payload: GoogleOAuthStatePayload = {
     provider: GOOGLE_PROVIDER,
     clientId: resolveClientId(clientId),
+    redirectTo: validateFrontendRedirectTarget(redirectTo),
     nonce: generateId(),
     issuedAt: Date.now()
   };
@@ -366,7 +397,7 @@ function requireSafeHeaderValue(value: string, fieldName: string): string {
 
 export function startGoogleOAuth(): GoogleOAuthStartResult {
   const config = getGoogleConfig();
-  const state = createOAuthState();
+  const state = createOAuthState(resolveClientId(), null);
   const oauthClient = createOAuthClient();
   const authorizationUrl = oauthClient.generateAuthUrl({
     access_type: 'offline',
@@ -383,11 +414,12 @@ export function startGoogleOAuth(): GoogleOAuthStartResult {
 }
 
 export async function startGoogleOAuthForClient(
-  clientId?: string
+  clientId: string,
+  redirectTo?: string
 ): Promise<GoogleOAuthStartResult> {
   const client = await ensureClientExists(clientId);
   const config = getGoogleConfig();
-  const state = createOAuthState(client.id);
+  const state = createOAuthState(client.id, redirectTo);
   const oauthClient = createOAuthClient();
   const authorizationUrl = oauthClient.generateAuthUrl({
     access_type: 'offline',
@@ -568,7 +600,8 @@ export async function handleGoogleOAuthCallback(
 
     return {
       mailbox,
-      scopes: (token.scope ?? '').split(/\s+/).filter(Boolean)
+      scopes: (token.scope ?? '').split(/\s+/).filter(Boolean),
+      redirectTo: oauthState.redirectTo
     };
   });
 
