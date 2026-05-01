@@ -1,6 +1,6 @@
 import { query, withTransaction } from '../../db/client';
 import { Lead } from '../../db/types';
-import { appendClientScope } from '../clients/scope';
+import { appendClientScope, assertLeadIdsBelongToClient, requireClientContext } from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 export interface ReviewQueueFilters {
@@ -124,9 +124,16 @@ export async function getReviewStatsForClient(clientId?: string): Promise<{
 export async function bulkReject(
   leadIds: string[],
   reason: Lead['rejection_reason'],
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<{ rejected: number }> {
   return withTransaction(async (client) => {
+    await assertLeadIdsBelongToClient(
+      leadIds,
+      requireClientContext(clientId, 'Bulk lead rejection'),
+      client
+    );
+
     const result = await query<{ id: string }>(
       `
         UPDATE leads

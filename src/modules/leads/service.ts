@@ -1,10 +1,16 @@
 import { HttpError } from '../../api/utils';
 import { ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Campaign, Company, Contact, Draft, Lead } from '../../db/types';
-import { appendClientScope } from '../clients/scope';
+import {
+  appendClientScope,
+  assertCampaignBelongsToClient,
+  assertLeadBelongsToClient,
+  requireClientContext
+} from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 export interface CreateLeadInput {
+  client_id: string;
   company_id: string;
   contact_id: string;
   campaign_id: string;
@@ -74,20 +80,6 @@ async function getLeadRow(
   return result.rows[0] ?? null;
 }
 
-async function getRawLead(leadId: string, client?: Parameters<typeof query>[2]): Promise<Lead> {
-  const result = await query<Lead>(
-    `
-      SELECT *
-      FROM leads
-      WHERE id = $1
-    `,
-    [leadId],
-    client
-  );
-
-  return ensureFound(result.rows[0], `Lead ${leadId} not found.`);
-}
-
 async function getCompanyForLead(companyId: string, client?: Parameters<typeof query>[2]): Promise<Company> {
   const result = await query<Company>('SELECT * FROM companies WHERE id = $1', [companyId], client);
   return ensureFound(result.rows[0], `Company ${companyId} not found.`);
@@ -98,19 +90,12 @@ async function getContactForLead(contactId: string, client?: Parameters<typeof q
   return ensureFound(result.rows[0], `Contact ${contactId} not found.`);
 }
 
-async function getCampaignForLead(campaignId: string, client?: Parameters<typeof query>[2]): Promise<Campaign> {
-  const result = await query<Campaign>('SELECT * FROM campaigns WHERE id = $1', [campaignId], client);
-  return ensureFound(result.rows[0], `Campaign ${campaignId} not found.`);
-}
-
-export async function createLead(
-  data: CreateLeadInput,
-  triggeredBy = 'operator'
-): Promise<unknown> {
+export async function createLead(data: CreateLeadInput, triggeredBy = 'operator'): Promise<unknown> {
   return withTransaction(async (client) => {
+    const scopedClientId = requireClientContext(data.client_id, 'Lead creation');
     const company = await getCompanyForLead(data.company_id, client);
     const contact = await getContactForLead(data.contact_id, client);
-    const campaign = await getCampaignForLead(data.campaign_id, client);
+    const campaign = await assertCampaignBelongsToClient(data.campaign_id, scopedClientId, client);
 
     if (contact.company_id !== company.id) {
       throw new HttpError(400, 'The contact does not belong to the selected company.');
@@ -250,10 +235,12 @@ export async function getLead(leadId: string): Promise<unknown | null> {
 export async function rejectLead(
   leadId: string,
   data: LeadRejectInput,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<unknown> {
   return withTransaction(async (client) => {
-    await getRawLead(leadId, client);
+    const scopedClientId = requireClientContext(clientId, 'Lead rejection');
+    await assertLeadBelongsToClient(leadId, scopedClientId, client);
 
     const leadResult = await query<Lead>(
       `
@@ -332,9 +319,12 @@ export async function rejectLead(
 export async function suppressLead(
   leadId: string,
   notes: string,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<unknown> {
   return withTransaction(async (client) => {
+    const scopedClientId = requireClientContext(clientId, 'Lead suppression');
+    await assertLeadBelongsToClient(leadId, scopedClientId, client);
     const result = await query<Lead>(
       `
         UPDATE leads
@@ -365,9 +355,12 @@ export async function suppressLead(
 export async function rescheduleLead(
   leadId: string,
   nextStepAt: string,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<unknown> {
   return withTransaction(async (client) => {
+    const scopedClientId = requireClientContext(clientId, 'Lead reschedule');
+    await assertLeadBelongsToClient(leadId, scopedClientId, client);
     const result = await query<Lead>(
       `
         UPDATE leads

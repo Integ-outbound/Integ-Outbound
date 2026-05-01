@@ -14,8 +14,11 @@ import { JOB_NAMES } from '../../queue/jobs';
 
 const router = Router();
 
-const emptyBodySchema = z.object({});
-const rejectBodySchema = z.object({
+const clientMutationBodySchema = z.object({
+  client_id: z.string().uuid()
+});
+
+const rejectBodySchema = clientMutationBodySchema.extend({
   reason: z.enum([
     'wrong_company',
     'wrong_contact',
@@ -27,7 +30,7 @@ const rejectBodySchema = z.object({
   ]),
   notes: z.string().trim().min(1).nullable().optional()
 });
-const editBodySchema = z.object({
+const editBodySchema = clientMutationBodySchema.extend({
   subject: z.string().min(1),
   body: z.string().min(1)
 });
@@ -48,8 +51,12 @@ router.post(
   '/drafts/generate/:leadId',
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(leadIdParamsSchema, req.params, 'Invalid lead id.');
-    parseWithSchema(emptyBodySchema, req.body ?? {}, 'Invalid draft generation payload.');
-    const draft = await generateDraft(params.leadId);
+    const body = parseWithSchema(
+      clientMutationBodySchema,
+      req.body ?? {},
+      'Invalid draft generation payload.'
+    );
+    const draft = await generateDraft(params.leadId, body.client_id);
     res.status(201).json(draft);
   })
 );
@@ -58,9 +65,14 @@ router.post(
   '/drafts/generate-batch/:campaignId',
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(campaignIdParamsSchema, req.params, 'Invalid campaign id.');
-    parseWithSchema(emptyBodySchema, req.body ?? {}, 'Invalid draft batch payload.');
+    const body = parseWithSchema(
+      clientMutationBodySchema,
+      req.body ?? {},
+      'Invalid draft batch payload.'
+    );
     const jobId = await getQueue().send(JOB_NAMES.GENERATE_DRAFTS, {
-      campaignId: params.campaignId
+      campaignId: params.campaignId,
+      clientId: body.client_id
     });
     res.status(202).json({ queued: true, jobName: JOB_NAMES.GENERATE_DRAFTS, jobId });
   })
@@ -84,8 +96,12 @@ router.post(
   '/drafts/:draftId/approve',
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(draftIdParamsSchema, req.params, 'Invalid draft id.');
-    parseWithSchema(emptyBodySchema, req.body ?? {}, 'Invalid draft approval payload.');
-    const draft = await approveDraft(params.draftId);
+    const body = parseWithSchema(
+      clientMutationBodySchema,
+      req.body ?? {},
+      'Invalid draft approval payload.'
+    );
+    const draft = await approveDraft(params.draftId, body.client_id);
     res.status(200).json(draft);
   })
 );
@@ -95,7 +111,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(draftIdParamsSchema, req.params, 'Invalid draft id.');
     const body = parseWithSchema(rejectBodySchema, req.body, 'Invalid draft rejection payload.');
-    const draft = await rejectDraft(params.draftId, body.reason, body.notes ?? null);
+    const draft = await rejectDraft(params.draftId, body.reason, body.notes ?? null, 'operator', body.client_id);
     res.status(200).json(draft);
   })
 );
@@ -105,7 +121,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(draftIdParamsSchema, req.params, 'Invalid draft id.');
     const body = parseWithSchema(editBodySchema, req.body, 'Invalid draft edit payload.');
-    const draft = await editDraft(params.draftId, body.subject, body.body);
+    const draft = await editDraft(params.draftId, body.subject, body.body, 'operator', body.client_id);
     res.status(200).json(draft);
   })
 );

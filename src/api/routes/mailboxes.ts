@@ -31,7 +31,11 @@ const mailboxIdParamsSchema = z.object({
   id: z.string().uuid()
 });
 
-const testSendBodySchema = z.object({
+const clientMutationBodySchema = z.object({
+  client_id: z.string().uuid()
+});
+
+const testSendBodySchema = clientMutationBodySchema.extend({
   to: z.string().email(),
   subject: z
     .string()
@@ -42,7 +46,7 @@ const testSendBodySchema = z.object({
   sentMessageId: z.string().uuid().optional()
 });
 
-const syncBodySchema = z.object({
+const syncBodySchema = clientMutationBodySchema.extend({
   maxResults: z.number().int().positive().max(200).optional()
 });
 
@@ -109,7 +113,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(mailboxIdParamsSchema, req.params, 'Invalid mailbox id.');
     const body = parseWithSchema(testSendBodySchema, req.body, 'Invalid mailbox test-send payload.');
-    const result = await sendMailboxTestEmail(params.id, body);
+    const result = await sendMailboxTestEmail(params.id, body, 'operator', body.client_id);
     res.status(200).json(result);
   })
 );
@@ -119,7 +123,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(mailboxIdParamsSchema, req.params, 'Invalid mailbox id.');
     const body = parseWithSchema(syncBodySchema, req.body ?? {}, 'Invalid mailbox sync payload.');
-    const result = await syncMailbox(params.id, body);
+    const result = await syncMailbox(params.id, body, 'operator', body.client_id);
     res.status(200).json(result);
   })
 );

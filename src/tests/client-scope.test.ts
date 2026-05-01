@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
+process.env.DATABASE_URL ??= 'postgresql://user:password@127.0.0.1:5432/integ_test';
+
+const {
   DEFAULT_CLIENT_ID,
   appendClientScope,
   canReassignOwnedRecord,
   resolveClientId,
   shouldGenerateSuggestedReply
-} from '../modules/clients/scope';
+} = require('../modules/clients/scope') as typeof import('../modules/clients/scope');
 
 test('resolveClientId falls back to the default client', () => {
   assert.equal(resolveClientId(undefined), DEFAULT_CLIENT_ID);

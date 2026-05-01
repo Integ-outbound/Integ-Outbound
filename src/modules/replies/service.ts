@@ -6,7 +6,13 @@ import {
 import { HttpError } from '../../api/utils';
 import { DbClient, ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Reply, SentMessage } from '../../db/types';
-import { appendClientScope, shouldGenerateSuggestedReply } from '../clients/scope';
+import {
+  appendClientScope,
+  assertReplyBelongsToClient,
+  assertSentMessageBelongsToClient,
+  requireClientContext,
+  shouldGenerateSuggestedReply
+} from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 export interface ReplyIngestInput {
@@ -199,8 +205,16 @@ async function stopFutureSequenceSteps(
 
 export async function ingestReply(
   data: ReplyIngestInput,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<Reply> {
+  if (clientId) {
+    await assertSentMessageBelongsToClient(
+      data.sent_message_id,
+      requireClientContext(clientId, 'Reply ingest')
+    );
+  }
+
   const sentMessage = await getSentMessage(data.sent_message_id);
   const reply = await withTransaction(async (client) => {
     const result = await query<Reply>(
@@ -278,7 +292,15 @@ export async function ingestReply(
   return reply;
 }
 
-export async function classifyReply(replyId: string, triggeredBy = 'system'): Promise<Reply> {
+export async function classifyReply(
+  replyId: string,
+  triggeredBy = 'system',
+  clientId?: string
+): Promise<Reply> {
+  if (clientId) {
+    await assertReplyBelongsToClient(replyId, requireClientContext(clientId, 'Reply classification'));
+  }
+
   const reply = await getReply(replyId);
   const prompt = buildReplyClassificationPrompt(reply.raw_content);
   const raw = await callHaiku(prompt);
@@ -321,11 +343,19 @@ export async function classifyReply(replyId: string, triggeredBy = 'system'): Pr
     );
   });
 
-  return routeReply(replyId, triggeredBy);
+  return routeReply(replyId, triggeredBy, clientId);
 }
 
-export async function routeReply(replyId: string, triggeredBy = 'system'): Promise<Reply> {
+export async function routeReply(
+  replyId: string,
+  triggeredBy = 'system',
+  clientId?: string
+): Promise<Reply> {
   const routedReply = await withTransaction(async (client) => {
+    if (clientId) {
+      await assertReplyBelongsToClient(replyId, requireClientContext(clientId, 'Reply routing'), client);
+    }
+
     const reply = await getReply(replyId, client);
     const sentMessage = await getSentMessage(reply.sent_message_id, client);
     const classification = reply.classification;
@@ -536,7 +566,7 @@ export async function routeReply(replyId: string, triggeredBy = 'system'): Promi
 
   if (shouldGenerateSuggestedReply(routedReply.classification, routedReply.routing_decision)) {
     try {
-      return await generateSuggestedReply(replyId, triggeredBy);
+      return await generateSuggestedReply(replyId, triggeredBy, clientId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await logEvent({
@@ -554,8 +584,16 @@ export async function routeReply(replyId: string, triggeredBy = 'system'): Promi
 
 export async function generateSuggestedReply(
   replyId: string,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<Reply> {
+  if (clientId) {
+    await assertReplyBelongsToClient(
+      replyId,
+      requireClientContext(clientId, 'Suggested reply generation')
+    );
+  }
+
   const context = await getReplySuggestionContext(replyId);
   const classification = context.reply.classification;
   if (
@@ -657,9 +695,14 @@ export async function getUnhandledReplies(filters: ReplyQueueFilters = {}): Prom
 export async function markHandled(
   replyId: string,
   operatorAction: string,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<Reply> {
   return withTransaction(async (client) => {
+    if (clientId) {
+      await assertReplyBelongsToClient(replyId, requireClientContext(clientId, 'Reply handling'), client);
+    }
+
     const result = await query<Reply>(
       `
         UPDATE replies
@@ -694,9 +737,14 @@ export async function markHandled(
 export async function reviewSuggestedReply(
   replyId: string,
   input: ReviewSuggestedReplyInput,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<Reply> {
   return withTransaction(async (client) => {
+    if (clientId) {
+      await assertReplyBelongsToClient(replyId, requireClientContext(clientId, 'Reply review'), client);
+    }
+
     const reply = await getReply(replyId, client);
     const subject =
       input.subject?.trim() ||

@@ -21,6 +21,7 @@ export interface VerifyContactsJobData {
 
 export interface GenerateDraftsJobData {
   campaignId: string;
+  clientId?: string;
 }
 
 export interface ClassifyReplyJobData {

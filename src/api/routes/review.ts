@@ -23,6 +23,7 @@ const statsQuerySchema = z.object({
 });
 
 const bulkRejectBodySchema = z.object({
+  client_id: z.string().uuid(),
   leadIds: z.array(z.string().uuid()).min(1),
   reason: z.enum([
     'wrong_company',
@@ -57,7 +58,7 @@ router.post(
   '/review/bulk-reject',
   asyncHandler(async (req, res) => {
     const body = parseWithSchema(bulkRejectBodySchema, req.body, 'Invalid bulk rejection payload.');
-    const result = await bulkReject(body.leadIds, body.reason);
+    const result = await bulkReject(body.leadIds, body.reason, 'operator', body.client_id);
     res.status(200).json(result);
   })
 );

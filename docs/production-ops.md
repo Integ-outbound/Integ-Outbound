@@ -43,7 +43,9 @@ Use the included `render.yaml` blueprint:
 - Store all secrets in the hosting platform secret manager, never in tracked files.
 - Treat `/api/v1/ready` as the only public probe.
 - Treat `/api/v1/health` and all business routes as authenticated internal endpoints.
-- Keep `MAILBOX_TOKEN_ENCRYPTION_KEY` stable across deploys. If it changes, stored Gmail refresh tokens can no longer be decrypted and connected mailboxes must reconnect.
+- Set a dedicated `MAILBOX_TOKEN_ENCRYPTION_KEY`; do not reuse `INTERNAL_API_KEY`.
+- Keep `MAILBOX_TOKEN_ENCRYPTION_KEY` stable across deploys. If it changes, stored Gmail refresh tokens can no longer be decrypted and connected mailboxes must reconnect or undergo a controlled token re-encryption migration.
+- Client-scoped mutation endpoints require explicit `client_id` in the JSON body and reject cross-client UUID access with `403`.
 
 ## Gmail Production Requirements
 
@@ -53,6 +55,8 @@ Use the included `render.yaml` blueprint:
 - Set `GOOGLE_GMAIL_SCOPES` to:
   - `https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify`
 - The same Gmail env vars must be present on both the web/API service and the worker service.
+- Direct send paths require mailboxes to be active, `connected`, and below the auth-failure quarantine threshold.
+- Manual sync can be used for active `unhealthy` mailboxes during recovery, but `disabled` mailboxes remain blocked.
 
 ## Migrations
 

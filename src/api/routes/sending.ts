@@ -18,7 +18,11 @@ const queueQuerySchema = z.object({
   limit: z.coerce.number().int().positive().default(50)
 });
 
-const markSentBodySchema = z.object({
+const clientMutationBodySchema = z.object({
+  client_id: z.string().uuid()
+});
+
+const markSentBodySchema = clientMutationBodySchema.extend({
   leadId: z.string().uuid(),
   draftId: z.string().uuid(),
   fromAddress: z.string().email(),
@@ -29,12 +33,11 @@ const markSentBodySchema = z.object({
   deliveryStatus: z.enum(['queued', 'sent', 'delivered', 'bounced', 'failed']).optional()
 });
 
-const markBouncedBodySchema = z.object({
+const markBouncedBodySchema = clientMutationBodySchema.extend({
   sentMessageId: z.string().uuid()
 });
 
-const processSendReadyBodySchema = z.object({
-  client_id: z.string().uuid().optional(),
+const processSendReadyBodySchema = clientMutationBodySchema.extend({
   limit: z.number().int().positive().max(100).optional()
 });
 
@@ -55,7 +58,7 @@ router.post(
   '/sending/mark-sent',
   asyncHandler(async (req, res) => {
     const body = parseWithSchema(markSentBodySchema, req.body, 'Invalid mark-sent payload.');
-    const sentMessage = await markSent(body);
+    const sentMessage = await markSent(body, 'operator', body.client_id);
     res.status(200).json(sentMessage);
   })
 );
@@ -64,7 +67,7 @@ router.post(
   '/sending/mark-bounced',
   asyncHandler(async (req, res) => {
     const body = parseWithSchema(markBouncedBodySchema, req.body, 'Invalid mark-bounced payload.');
-    const sentMessage = await markBounced(body.sentMessageId);
+    const sentMessage = await markBounced(body.sentMessageId, 'operator', body.client_id);
     res.status(200).json(sentMessage);
   })
 );

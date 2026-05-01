@@ -3,6 +3,12 @@ import { buildDraftPrompt } from '../../ai/prompts';
 import { DbClient, ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Campaign, Company, Contact, Draft, Lead } from '../../db/types';
 import { HttpError } from '../../api/utils';
+import {
+  assertCampaignBelongsToClient,
+  assertDraftBelongsToClient,
+  assertLeadBelongsToClient,
+  requireClientContext
+} from '../clients/scope';
 import { logEvent } from '../observability/service';
 import { BatchJobSummary, finalizeBatchJob } from '../shared/batch';
 
@@ -122,16 +128,6 @@ async function getLeadContextByLeadId(leadId: string, client?: DbClient): Promis
   };
 }
 
-async function getDraftById(draftId: string, client?: DbClient): Promise<Draft> {
-  const result = await query<Draft>('SELECT * FROM drafts WHERE id = $1', [draftId], client);
-  const draft = result.rows[0];
-  if (!draft) {
-    throw new Error(`Draft ${draftId} not found.`);
-  }
-
-  return draft;
-}
-
 async function ensureSendReadyAllowed(
   leadId: string,
   client: DbClient,
@@ -174,7 +170,16 @@ async function ensureSendReadyAllowed(
   return false;
 }
 
-export async function generateDraft(leadId: string, triggeredBy = 'operator'): Promise<Draft> {
+export async function generateDraft(
+  leadId: string,
+  clientId?: string,
+  triggeredBy = 'operator'
+): Promise<Draft> {
+  if (clientId) {
+    const scopedClientId = requireClientContext(clientId, 'Draft generation');
+    await assertLeadBelongsToClient(leadId, scopedClientId);
+  }
+
   const context = await getLeadContextByLeadId(leadId);
   const recentSignals = getRecentSignals(context.company);
   const signalDescriptions = recentSignals
@@ -247,8 +252,14 @@ export async function generateDraft(leadId: string, triggeredBy = 'operator'): P
 
 export async function generateBatchDrafts(
   campaignId: string,
-  triggeredBy = 'system'
+  triggeredBy = 'system',
+  clientId?: string
 ): Promise<BatchJobSummary> {
+  if (clientId) {
+    const scopedClientId = requireClientContext(clientId, 'Draft batch generation');
+    await assertCampaignBelongsToClient(campaignId, scopedClientId);
+  }
+
   const result = await query<{ id: string }>(
     `
       SELECT l.id
@@ -274,7 +285,7 @@ export async function generateBatchDrafts(
 
   for (const row of result.rows) {
     try {
-      await generateDraft(row.id, triggeredBy);
+      await generateDraft(row.id, clientId, triggeredBy);
       summary.succeeded += 1;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -322,9 +333,14 @@ export async function getDraft(leadId: string): Promise<Draft | null> {
   return result.rows[0] ?? null;
 }
 
-export async function approveDraft(draftId: string, triggeredBy = 'operator'): Promise<Draft> {
+export async function approveDraft(
+  draftId: string,
+  clientId?: string,
+  triggeredBy = 'operator'
+): Promise<Draft> {
   const result = await withTransaction(async (client) => {
-    const draft = await getDraftById(draftId, client);
+    const scopedClientId = requireClientContext(clientId, 'Draft approval');
+    const draft = await assertDraftBelongsToClient(draftId, scopedClientId, client);
     const allowed = await ensureSendReadyAllowed(draft.lead_id, client, triggeredBy);
     if (!allowed) {
       return null;
@@ -387,10 +403,12 @@ export async function rejectDraft(
   draftId: string,
   reason: Lead['rejection_reason'],
   notes: string | null,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<Draft> {
   return withTransaction(async (client) => {
-    const draft = await getDraftById(draftId, client);
+    const scopedClientId = requireClientContext(clientId, 'Draft rejection');
+    const draft = await assertDraftBelongsToClient(draftId, scopedClientId, client);
     const result = await query<Draft>(
       `
         UPDATE drafts
@@ -448,10 +466,12 @@ export async function editDraft(
   draftId: string,
   editedSubject: string,
   editedBody: string,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<Draft> {
   const result = await withTransaction(async (client) => {
-    const draft = await getDraftById(draftId, client);
+    const scopedClientId = requireClientContext(clientId, 'Draft edit');
+    const draft = await assertDraftBelongsToClient(draftId, scopedClientId, client);
     const allowed = await ensureSendReadyAllowed(draft.lead_id, client, triggeredBy);
     if (!allowed) {
       return null;

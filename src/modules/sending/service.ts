@@ -1,6 +1,14 @@
 import { DbClient, ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Campaign, Draft, Lead, SentMessage } from '../../db/types';
-import { appendClientScope } from '../clients/scope';
+import { HttpError } from '../../api/utils';
+import {
+  appendClientScope,
+  assertDraftBelongsToClient,
+  assertLeadBelongsToClient,
+  assertMailboxBelongsToClient,
+  assertSentMessageBelongsToClient,
+  requireClientContext
+} from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 export interface MarkSentInput {
@@ -162,28 +170,40 @@ export async function getSendReadyQueue(limit: number, clientId?: string): Promi
   return result.rows;
 }
 
-export async function markSent(input: MarkSentInput, triggeredBy = 'operator'): Promise<SentMessage> {
+export async function markSent(
+  input: MarkSentInput,
+  triggeredBy = 'operator',
+  clientId?: string
+): Promise<SentMessage> {
   return withTransaction(async (client) => {
-    const leadResult = await query<Lead>(
-      'SELECT * FROM leads WHERE id = $1',
-      [input.leadId],
-      client
-    );
-    const draftResult = await query<Draft>(
-      'SELECT * FROM drafts WHERE id = $1',
-      [input.draftId],
-      client
-    );
+    const scopedClientId = clientId?.trim() || null;
+    const lead = scopedClientId
+      ? await assertLeadBelongsToClient(
+          input.leadId,
+          requireClientContext(scopedClientId, 'Mark sent'),
+          client
+        )
+      : ensureFound(
+          (
+            await query<Lead>('SELECT * FROM leads WHERE id = $1', [input.leadId], client)
+          ).rows[0],
+          `Lead ${input.leadId} not found.`
+        );
+    const draft = scopedClientId
+      ? await assertDraftBelongsToClient(input.draftId, scopedClientId, client)
+      : ensureFound(
+          (
+            await query<Draft>('SELECT * FROM drafts WHERE id = $1', [input.draftId], client)
+          ).rows[0],
+          `Draft ${input.draftId} not found.`
+        );
 
-    const lead = leadResult.rows[0];
-    const draft = draftResult.rows[0];
-
-    if (!lead) {
-      throw new Error(`Lead ${input.leadId} not found.`);
+    if (draft.lead_id !== lead.id) {
+      throw new HttpError(400, `Draft ${draft.id} does not belong to lead ${lead.id}.`);
     }
 
-    if (!draft) {
-      throw new Error(`Draft ${input.draftId} not found.`);
+    if (scopedClientId && input.mailboxId) {
+      await assertMailboxBelongsToClient(input.mailboxId, scopedClientId, client);
     }
 
     const sentAt = input.sentAt ?? new Date().toISOString();
@@ -299,17 +319,28 @@ export async function markSent(input: MarkSentInput, triggeredBy = 'operator'): 
   });
 }
 
-export async function markBounced(sentMessageId: string, triggeredBy = 'operator'): Promise<SentMessage> {
+export async function markBounced(
+  sentMessageId: string,
+  triggeredBy = 'operator',
+  clientId?: string
+): Promise<SentMessage> {
   return withTransaction(async (client) => {
-    const messageResult = await query<SentMessage>(
-      'SELECT * FROM sent_messages WHERE id = $1',
-      [sentMessageId],
-      client
-    );
-    const message = messageResult.rows[0];
-    if (!message) {
-      throw new Error(`Sent message ${sentMessageId} not found.`);
-    }
+    const message = clientId
+      ? await assertSentMessageBelongsToClient(
+          sentMessageId,
+          requireClientContext(clientId, 'Mark bounced'),
+          client
+        )
+      : ensureFound(
+          (
+            await query<SentMessage>(
+              'SELECT * FROM sent_messages WHERE id = $1',
+              [sentMessageId],
+              client
+            )
+          ).rows[0],
+          `Sent message ${sentMessageId} not found.`
+        );
 
     const result = await query<SentMessage>(
       `

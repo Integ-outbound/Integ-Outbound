@@ -61,7 +61,6 @@ There is no surviving Python, FastAPI, Next.js, SQLite, or OpenAI application in
 
 - Public or generic bulk-email sending. Gmail sending is implemented for connected internal mailboxes, but it remains an operator/worker-governed outbound system rather than a general email platform.
 - Per-user auth and user management. The current auth model is a shared internal API key.
-- Automated tests. Validation is currently by typecheck, build, startup, and manual smoke checks.
 - A built-in contact discovery provider. Contacts can be ingested and verified, but provider-backed discovery is not part of the current implementation.
 
 ## Authentication
@@ -112,7 +111,8 @@ Notes:
 - PostgreSQL is required. There is no SQLite fallback.
 - Anthropic-backed flows require a funded Anthropic account. If billing is not active, enrichment, draft generation, and reply classification will fail.
 - Gmail OAuth requires a Google Cloud OAuth web client whose redirect URI matches `GOOGLE_REDIRECT_URI`.
-- `MAILBOX_TOKEN_ENCRYPTION_KEY` is recommended for mailbox refresh-token encryption. If it is omitted, the backend derives encryption from `INTERNAL_API_KEY`.
+- `MAILBOX_TOKEN_ENCRYPTION_KEY` is required for mailbox refresh-token encryption and must be separate from `INTERNAL_API_KEY`.
+- Rotating `MAILBOX_TOKEN_ENCRYPTION_KEY` requires either mailbox reconnects or a controlled token re-encryption migration.
 - For a dedicated web process on Render, set `START_WORKER=false`.
 
 ## Local Setup
@@ -217,6 +217,8 @@ Additional operator-facing routes:
 - `GET /api/v1/health`
 - `GET /api/v1/ready`
 
+Client-scoped mutation routes require an explicit JSON `client_id`. The shared internal API key is not sufficient to mutate mailbox, campaign, lead, draft, reply, review, or send-state records by raw UUID alone. Internal background jobs use the service layer directly rather than bypassing that requirement through public HTTP endpoints.
+
 ## Gmail OAuth Setup
 
 This backend supports Gmail OAuth mailbox connection, Gmail API test send, manual Gmail inbox polling sync, scheduled Gmail polling sync, and autonomous processing of `send_ready` leads through Gmail. Push notifications and inbox auto-replies are intentionally not implemented yet.
@@ -248,6 +250,7 @@ Manual sync behavior:
 - stores canonical Gmail threads and messages in PostgreSQL
 - detects inbound replies and routes matched replies into the existing `replies` classification pipeline
 - suppresses future sequence steps for the matched outbound lead once a real reply is ingested
+- sync requires an active mailbox and allows `unhealthy` status for recovery, but not `disabled`
 
 Mailbox status behavior:
 
@@ -261,6 +264,7 @@ Autonomous worker behavior:
 - pg-boss schedules `gmail.sendReadyLead` every 2 minutes
 - sync only runs for active connected mailboxes
 - send-ready processing only sends from active connected mailboxes under their daily cap
+- direct `POST /api/v1/mailboxes/:id/test-send` uses the same active and connected send gate and does not bypass mailbox quarantine
 - Gmail send failures are recorded in `mailbox_send_attempts`
 - repeated auth failures mark the mailbox unhealthy
 - suppression or contact-state blocks suppress the lead instead of repeatedly retrying it
@@ -291,7 +295,7 @@ curl -s \
   -X POST \
   -H "x-api-key: YOUR_INTERNAL_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"to":"you@example.com","subject":"Gmail OAuth test","body":"This is a Gmail API test email from Integ."}' \
+  -d '{"client_id":"YOUR_CLIENT_ID","to":"you@example.com","subject":"Gmail OAuth test","body":"This is a Gmail API test email from Integ."}' \
   http://localhost:3000/api/v1/mailboxes/MAILBOX_ID/test-send
 ```
 
@@ -304,7 +308,7 @@ curl -s \
   -X POST \
   -H "x-api-key: YOUR_INTERNAL_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"maxResults":50}' \
+  -d '{"client_id":"YOUR_CLIENT_ID","maxResults":50}' \
   http://localhost:3000/api/v1/mailboxes/MAILBOX_ID/sync
 ```
 
@@ -325,7 +329,7 @@ curl -s \
   -X POST \
   -H "x-api-key: YOUR_INTERNAL_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"limit":10}' \
+  -d '{"client_id":"YOUR_CLIENT_ID","limit":10}' \
   http://localhost:3000/api/v1/sending/process-send-ready
 ```
 
@@ -362,7 +366,7 @@ curl -s \
   -X POST \
   -H "x-api-key: YOUR_INTERNAL_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"to":"contact@example.com","subject":"Real Gmail reply-sync test","body":"Please reply to this message.","sentMessageId":"YOUR_SENT_MESSAGE_ID"}' \
+  -d '{"client_id":"YOUR_CLIENT_ID","to":"contact@example.com","subject":"Real Gmail reply-sync test","body":"Please reply to this message.","sentMessageId":"YOUR_SENT_MESSAGE_ID"}' \
   http://localhost:3000/api/v1/mailboxes/MAILBOX_ID/test-send
 ```
 
@@ -374,7 +378,7 @@ curl -s \
   -X POST \
   -H "x-api-key: YOUR_INTERNAL_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{}' \
+  -d '{"client_id":"YOUR_CLIENT_ID"}' \
   http://localhost:3000/api/v1/mailboxes/MAILBOX_ID/sync
 ```
 
@@ -401,7 +405,7 @@ curl -s \
   -X POST \
   -H "x-api-key: YOUR_INTERNAL_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"maxResults":50}' \
+  -d '{"client_id":"YOUR_CLIENT_ID","maxResults":50}' \
   http://localhost:3000/api/v1/mailboxes/MAILBOX_ID/sync
 ```
 
@@ -412,7 +416,7 @@ curl -s \
   -X POST \
   -H "x-api-key: YOUR_INTERNAL_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"limit":10}' \
+  -d '{"client_id":"YOUR_CLIENT_ID","limit":10}' \
   http://localhost:3000/api/v1/sending/process-send-ready
 ```
 
@@ -509,10 +513,11 @@ It validates:
 ```powershell
 npm run typecheck
 npm run build
-npm run readiness:check
+npm test
+npm audit --omit=dev
 ```
 
-These validate the application structure and non-mutating runtime behavior. Full AI validation still requires valid external credentials and funded Anthropic billing.
+These validate the application structure, the regression suite, and runtime dependency posture. Full AI and Gmail validation still requires valid external credentials and funded Anthropic billing.
 
 ## Security Posture
 

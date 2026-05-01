@@ -14,7 +14,7 @@ const router = Router();
 const campaignStatusSchema = z.enum(['draft', 'active', 'paused', 'archived']);
 
 const createCampaignBodySchema = z.object({
-  client_id: z.string().uuid().optional(),
+  client_id: z.string().uuid(),
   name: z.string().trim().min(1),
   angle: z.string().trim().min(1),
   persona: z.string().trim().min(1),
@@ -37,6 +37,7 @@ const campaignIdParamsSchema = z.object({
 
 const updateCampaignBodySchema = z
   .object({
+    client_id: z.string().uuid(),
     name: z.string().trim().min(1).optional(),
     angle: z.string().trim().min(1).optional(),
     persona: z.string().trim().min(1).optional(),
@@ -47,7 +48,7 @@ const updateCampaignBodySchema = z
     status: campaignStatusSchema.optional(),
     prompt_version: z.string().trim().min(1).nullable().optional()
   })
-  .refine((value) => Object.keys(value).length > 0, {
+  .refine((value) => Object.keys(value).some((key) => key !== 'client_id'), {
     message: 'At least one campaign field must be provided.'
   });
 
@@ -88,7 +89,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(campaignIdParamsSchema, req.params, 'Invalid campaign id.');
     const body = parseWithSchema(updateCampaignBodySchema, req.body, 'Invalid campaign patch payload.');
-    const campaign = await updateCampaign(params.id, body);
+    const campaign = await updateCampaign(params.id, body, 'operator', body.client_id);
     res.status(200).json(campaign);
   })
 );

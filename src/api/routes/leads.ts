@@ -35,6 +35,7 @@ const leadRejectionReasonSchema = z.enum([
 ]);
 
 const createLeadBodySchema = z.object({
+  client_id: z.string().uuid(),
   company_id: z.string().uuid(),
   contact_id: z.string().uuid(),
   campaign_id: z.string().uuid(),
@@ -54,16 +55,20 @@ const leadIdParamsSchema = z.object({
   id: z.string().uuid()
 });
 
-const rejectLeadBodySchema = z.object({
+const clientMutationBodySchema = z.object({
+  client_id: z.string().uuid()
+});
+
+const rejectLeadBodySchema = clientMutationBodySchema.extend({
   rejection_reason: leadRejectionReasonSchema,
   rejection_notes: z.string().trim().min(1).nullable().optional()
 });
 
-const suppressLeadBodySchema = z.object({
+const suppressLeadBodySchema = clientMutationBodySchema.extend({
   notes: z.string().trim().min(1)
 });
 
-const rescheduleLeadBodySchema = z.object({
+const rescheduleLeadBodySchema = clientMutationBodySchema.extend({
   next_step_at: z.string().datetime()
 });
 
@@ -104,7 +109,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(leadIdParamsSchema, req.params, 'Invalid lead id.');
     const body = parseWithSchema(rejectLeadBodySchema, req.body, 'Invalid lead rejection payload.');
-    const lead = await rejectLead(params.id, body);
+    const lead = await rejectLead(params.id, body, 'operator', body.client_id);
     res.status(200).json(lead);
   })
 );
@@ -114,7 +119,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(leadIdParamsSchema, req.params, 'Invalid lead id.');
     const body = parseWithSchema(suppressLeadBodySchema, req.body, 'Invalid lead suppression payload.');
-    const lead = await suppressLead(params.id, body.notes);
+    const lead = await suppressLead(params.id, body.notes, 'operator', body.client_id);
     res.status(200).json(lead);
   })
 );
@@ -128,7 +133,7 @@ router.post(
       req.body,
       'Invalid lead reschedule payload.'
     );
-    const lead = await rescheduleLead(params.id, body.next_step_at);
+    const lead = await rescheduleLead(params.id, body.next_step_at, 'operator', body.client_id);
     res.status(200).json(lead);
   })
 );

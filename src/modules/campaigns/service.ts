@@ -1,12 +1,15 @@
-import { HttpError } from '../../api/utils';
 import { ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Campaign } from '../../db/types';
 import { ensureClientExists } from '../clients/service';
-import { appendClientScope } from '../clients/scope';
+import {
+  appendClientScope,
+  assertCampaignBelongsToClient,
+  requireClientContext
+} from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 export interface CreateCampaignInput {
-  client_id?: string;
+  client_id: string;
   name: string;
   angle: string;
   persona: string;
@@ -40,7 +43,9 @@ export async function createCampaign(
   triggeredBy = 'operator'
 ): Promise<Campaign> {
   return withTransaction(async (client) => {
-    const ownedClient = await ensureClientExists(data.client_id);
+    const ownedClient = await ensureClientExists(
+      requireClientContext(data.client_id, 'Campaign creation'),
+    );
     const result = await query<Campaign>(
       `
         INSERT INTO campaigns (
@@ -137,13 +142,12 @@ export async function getCampaign(id: string): Promise<Campaign | null> {
 export async function updateCampaign(
   id: string,
   data: UpdateCampaignInput,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<Campaign> {
   return withTransaction(async (client) => {
-    const existing = await getCampaign(id);
-    if (!existing) {
-      throw new HttpError(404, `Campaign ${id} not found.`);
-    }
+    const scopedClientId = requireClientContext(clientId, 'Campaign update');
+    const existing = await assertCampaignBelongsToClient(id, scopedClientId, client);
 
     const result = await query<Campaign>(
       `

@@ -7,6 +7,7 @@ import router from './api/router';
 import { HttpError } from './api/utils';
 import { pool } from './db/client';
 import { runMigrations } from './db/migrations';
+import { assertMailboxTokenEncryptionConfigured } from './modules/mailboxes/service';
 import { startWorker, stopWorker } from './queue/worker';
 import { shouldStartWorker } from './runtime';
 
@@ -24,6 +25,8 @@ async function bootstrap(): Promise<void> {
   if (internalApiKey.length < 32) {
     throw new Error('INTERNAL_API_KEY must be at least 32 characters long.');
   }
+
+  assertMailboxTokenEncryptionConfigured();
 
   app.disable('x-powered-by');
   app.set('trust proxy', isProduction ? 1 : false);

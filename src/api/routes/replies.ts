@@ -13,15 +13,17 @@ import {
 
 const router = Router();
 
-const emptyBodySchema = z.object({});
+const clientMutationBodySchema = z.object({
+  client_id: z.string().uuid()
+});
 
-const ingestBodySchema = z.object({
+const ingestBodySchema = clientMutationBodySchema.extend({
   sent_message_id: z.string().uuid(),
   raw_content: z.string().min(1),
   received_at: z.string().datetime().optional()
 });
 
-const handledBodySchema = z.object({
+const handledBodySchema = clientMutationBodySchema.extend({
   operatorAction: z.string().min(1)
 });
 
@@ -30,7 +32,7 @@ const replyQueueQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).optional()
 });
 
-const reviewSuggestedReplyBodySchema = z.object({
+const reviewSuggestedReplyBodySchema = clientMutationBodySchema.extend({
   action: z.enum(['approved', 'edited', 'rejected']),
   subject: z.string().trim().min(1).nullable().optional(),
   body: z.string().trim().min(1).nullable().optional(),
@@ -45,7 +47,7 @@ router.post(
   '/replies/ingest',
   asyncHandler(async (req, res) => {
     const body = parseWithSchema(ingestBodySchema, req.body, 'Invalid reply ingest payload.');
-    const reply = await ingestReply(body);
+    const reply = await ingestReply(body, 'operator', body.client_id);
     res.status(201).json(reply);
   })
 );
@@ -53,9 +55,9 @@ router.post(
 router.post(
   '/replies/:id/classify',
   asyncHandler(async (req, res) => {
-    parseWithSchema(emptyBodySchema, req.body ?? {}, 'Invalid reply classify payload.');
+    const body = parseWithSchema(clientMutationBodySchema, req.body ?? {}, 'Invalid reply classify payload.');
     const params = parseWithSchema(replyIdParamsSchema, req.params, 'Invalid reply id.');
-    const reply = await classifyReply(params.id);
+    const reply = await classifyReply(params.id, 'operator', body.client_id);
     res.status(200).json(reply);
   })
 );
@@ -72,9 +74,13 @@ router.get(
 router.post(
   '/replies/:id/suggested-reply',
   asyncHandler(async (req, res) => {
-    parseWithSchema(emptyBodySchema, req.body ?? {}, 'Invalid suggested reply payload.');
+    const body = parseWithSchema(
+      clientMutationBodySchema,
+      req.body ?? {},
+      'Invalid suggested reply payload.'
+    );
     const params = parseWithSchema(replyIdParamsSchema, req.params, 'Invalid reply id.');
-    const reply = await generateSuggestedReply(params.id);
+    const reply = await generateSuggestedReply(params.id, 'operator', body.client_id);
     res.status(200).json(reply);
   })
 );
@@ -84,7 +90,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const params = parseWithSchema(replyIdParamsSchema, req.params, 'Invalid reply id.');
     const body = parseWithSchema(handledBodySchema, req.body, 'Invalid handled reply payload.');
-    const reply = await markHandled(params.id, body.operatorAction);
+    const reply = await markHandled(params.id, body.operatorAction, 'operator', body.client_id);
     res.status(200).json(reply);
   })
 );
@@ -98,7 +104,7 @@ router.post(
       req.body,
       'Invalid reviewed reply payload.'
     );
-    const reply = await reviewSuggestedReply(params.id, body);
+    const reply = await reviewSuggestedReply(params.id, body, 'operator', body.client_id);
     res.status(200).json(reply);
   })
 );

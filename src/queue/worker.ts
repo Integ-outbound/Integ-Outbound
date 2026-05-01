@@ -35,7 +35,8 @@ const verifyContactsJobSchema = z.object({
   limit: z.number().int().positive().optional()
 });
 const generateDraftsJobSchema = z.object({
-  campaignId: z.string().uuid()
+  campaignId: z.string().uuid(),
+  clientId: z.string().uuid().optional()
 });
 const classifyReplyJobSchema = z.object({
   replyId: z.string().uuid()
@@ -187,7 +188,7 @@ export async function startWorker(registerHandlers = true): Promise<PgBoss> {
     JOB_NAMES.GENERATE_DRAFTS,
     generateDraftsJobSchema,
     async (data) => {
-    await generateBatchDrafts(data.campaignId, 'system');
+    await generateBatchDrafts(data.campaignId, 'system', data.clientId);
     }
   );
 

@@ -6,11 +6,17 @@ import { HttpError } from '../../api/utils';
 import { ensureFound, generateId, query, withTransaction } from '../../db/client';
 import { Mailbox, MailboxOauthToken } from '../../db/types';
 import { ensureClientExists } from '../clients/service';
-import { canReassignOwnedRecord, resolveClientId } from '../clients/scope';
+import {
+  assertMailboxBelongsToClient,
+  assertSentMessageBelongsToClient,
+  canReassignOwnedRecord,
+  resolveClientId
+} from '../clients/scope';
 import { logEvent } from '../observability/service';
 
 const GOOGLE_PROVIDER = 'google';
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
+export const MAILBOX_AUTH_FAILURE_THRESHOLD = 3;
 const DEFAULT_GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.readonly',
@@ -88,6 +94,13 @@ export interface AuthenticatedMailboxContext {
   gmail: gmail_v1.Gmail;
 }
 
+export type MailboxContextPurpose = 'send' | 'sync';
+
+export interface MailboxContextOptions {
+  clientId?: string;
+  purpose?: MailboxContextPurpose;
+}
+
 function getGoogleConfig(): GoogleOAuthConfig {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
@@ -134,15 +147,21 @@ function getOAuthStateSecret(): string {
   return secret;
 }
 
-function getEncryptionKey(): Buffer {
-  const secret =
-    process.env.MAILBOX_TOKEN_ENCRYPTION_KEY?.trim() || process.env.INTERNAL_API_KEY?.trim();
-
+function getMailboxTokenEncryptionSecret(): string {
+  const secret = process.env.MAILBOX_TOKEN_ENCRYPTION_KEY?.trim();
   if (!secret) {
-    throw new Error('MAILBOX_TOKEN_ENCRYPTION_KEY or INTERNAL_API_KEY is required for mailbox token encryption.');
+    throw new Error('MAILBOX_TOKEN_ENCRYPTION_KEY is required for mailbox token encryption.');
   }
 
-  return createHash('sha256').update(secret).digest();
+  return secret;
+}
+
+export function assertMailboxTokenEncryptionConfigured(): void {
+  getMailboxTokenEncryptionSecret();
+}
+
+function getEncryptionKey(): Buffer {
+  return createHash('sha256').update(getMailboxTokenEncryptionSecret()).digest();
 }
 
 function createOAuthClient() {
@@ -275,11 +294,22 @@ async function getMailboxWithToken(
 }
 
 export async function getAuthenticatedMailboxContext(
-  mailboxId: string
+  mailboxId: string,
+  options: MailboxContextOptions = {}
 ): Promise<AuthenticatedMailboxContext> {
+  if (options.clientId) {
+    await assertMailboxBelongsToClient(mailboxId, options.clientId);
+  }
+
   const mailboxWithToken = await getMailboxWithToken(mailboxId);
   if (!mailboxWithToken) {
     throw new HttpError(404, `Mailbox ${mailboxId} not found.`);
+  }
+
+  if (options.purpose === 'sync') {
+    assertMailboxCanSync(mailboxWithToken);
+  } else {
+    assertMailboxCanSend(mailboxWithToken);
   }
 
   const refreshToken = decryptRefreshToken(mailboxWithToken.oauth_token.refresh_token_encrypted);
@@ -294,6 +324,36 @@ export async function getAuthenticatedMailboxContext(
     oauthClient,
     gmail: google.gmail({ version: 'v1', auth: oauthClient })
   };
+}
+
+export function assertMailboxCanSend(mailbox: Mailbox): void {
+  if (!mailbox.is_active) {
+    throw new HttpError(409, `Mailbox ${mailbox.id} is inactive and cannot send email.`);
+  }
+
+  if (mailbox.status !== 'connected') {
+    throw new HttpError(
+      409,
+      `Mailbox ${mailbox.id} status ${mailbox.status} does not allow sending.`
+    );
+  }
+
+  if (mailbox.consecutive_auth_failures >= MAILBOX_AUTH_FAILURE_THRESHOLD) {
+    throw new HttpError(
+      409,
+      `Mailbox ${mailbox.id} is quarantined after repeated authentication failures.`
+    );
+  }
+}
+
+export function assertMailboxCanSync(mailbox: Mailbox): void {
+  if (!mailbox.is_active) {
+    throw new HttpError(409, `Mailbox ${mailbox.id} is inactive and cannot sync.`);
+  }
+
+  if (mailbox.status === 'disabled') {
+    throw new HttpError(409, `Mailbox ${mailbox.id} is disabled and cannot sync.`);
+  }
 }
 
 function requireSafeHeaderValue(value: string, fieldName: string): string {
@@ -518,9 +578,17 @@ export async function handleGoogleOAuthCallback(
 export async function sendMailboxEmail(
   mailboxId: string,
   input: SendMailboxEmailInput,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<SendMailboxEmailResult> {
-  const mailboxContext = await getAuthenticatedMailboxContext(mailboxId);
+  const mailboxContext = await getAuthenticatedMailboxContext(mailboxId, {
+    clientId,
+    purpose: 'send'
+  });
+
+  if (clientId && input.sentMessageId) {
+    await assertSentMessageBelongsToClient(input.sentMessageId, clientId);
+  }
 
   const to = requireSafeHeaderValue(input.to.trim(), 'Recipient');
   const subject = requireSafeHeaderValue(input.subject.trim(), 'Subject');
@@ -605,7 +673,8 @@ export async function sendMailboxEmail(
 export async function sendMailboxTestEmail(
   mailboxId: string,
   input: TestSendInput,
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<TestSendResult> {
-  return sendMailboxEmail(mailboxId, input, triggeredBy);
+  return sendMailboxEmail(mailboxId, input, triggeredBy, clientId);
 }

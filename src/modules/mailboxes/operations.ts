@@ -3,13 +3,12 @@ import { ensureFound, generateId, query, withTransaction } from '../../db/client
 import { Campaign, Company, Contact, Draft, Lead, Mailbox, MailboxSendAttempt } from '../../db/types';
 import { appendClientScope } from '../clients/scope';
 import { logEvent } from '../observability/service';
-import { sendMailboxEmail } from './service';
+import { MAILBOX_AUTH_FAILURE_THRESHOLD, sendMailboxEmail } from './service';
 import { syncMailbox } from './sync';
 import { markSent } from '../sending/service';
 
 const DEFAULT_SYNC_JOB_LIMIT = 25;
 const DEFAULT_SEND_READY_LIMIT = 10;
-const AUTH_FAILURE_THRESHOLD = 3;
 const LEAD_SEND_FAILURE_THRESHOLD = 3;
 
 export interface MailboxStatusView {
@@ -456,7 +455,7 @@ async function markMailboxFailure(
         updated_at = NOW()
       WHERE id = $1
     `,
-    [mailboxId, AUTH_FAILURE_THRESHOLD],
+    [mailboxId, MAILBOX_AUTH_FAILURE_THRESHOLD],
     client
   );
 }

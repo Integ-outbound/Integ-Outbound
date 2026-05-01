@@ -693,9 +693,13 @@ async function fetchRecentMessages(
 export async function syncMailbox(
   mailboxId: string,
   input: MailboxSyncInput = {},
-  triggeredBy = 'operator'
+  triggeredBy = 'operator',
+  clientId?: string
 ): Promise<MailboxSyncResult> {
-  const mailboxContext = await getAuthenticatedMailboxContext(mailboxId);
+  const mailboxContext = await getAuthenticatedMailboxContext(mailboxId, {
+    clientId,
+    purpose: 'sync'
+  });
   const syncState = await getOrCreateSyncState(mailboxId);
   const maxResults = Math.min(Math.max(input.maxResults ?? DEFAULT_SYNC_MAX_RESULTS, 1), MAX_SYNC_RESULTS);
 
