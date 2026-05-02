@@ -10,6 +10,7 @@ import icpRouter from './routes/icp';
 import importsRouter from './routes/imports';
 import leadsRouter from './routes/leads';
 import mailboxesRouter, { publicMailboxesRouter } from './routes/mailboxes';
+import manualTouchesRouter from './routes/manual-touches';
 import memoryRouter from './routes/memory';
 import observabilityRouter from './routes/observability';
 import operatorRouter from './routes/operator';
@@ -26,6 +27,7 @@ router.use(publicMailboxesRouter);
 router.use(requireInternalApiKey);
 
 router.use(mailboxesRouter);
+router.use(manualTouchesRouter);
 router.use(clientsRouter);
 router.use(campaignsRouter);
 router.use(leadsRouter);

@@ -47,6 +47,7 @@ a {
 
 button,
 input,
+select,
 textarea,
 summary {
   font: inherit;
@@ -646,6 +647,7 @@ dt {
 }
 
 .field input,
+.field select,
 .field textarea {
   width: 100%;
   padding: 14px 16px;

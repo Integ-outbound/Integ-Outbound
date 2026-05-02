@@ -85,6 +85,26 @@ CREATE TABLE IF NOT EXISTS pilot_requests (
   updated_at timestamptz NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS manual_touches (
+  id uuid PRIMARY KEY,
+  client_id uuid REFERENCES clients(id),
+  lead_id uuid REFERENCES leads(id) ON DELETE SET NULL,
+  company_name text,
+  person_name text,
+  channel text NOT NULL CHECK (
+    channel IN ('email', 'linkedin', 'instagram', 'facebook', 'contact_form', 'whatsapp', 'other')
+  ),
+  message_body text,
+  status text NOT NULL DEFAULT 'planned' CHECK (
+    status IN ('planned', 'sent', 'replied', 'interested', 'rejected', 'booked_call', 'closed')
+  ),
+  sent_at timestamptz,
+  reply_at timestamptz,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
 INSERT INTO clients (id, slug, name, is_active)
 VALUES (
   '00000000-0000-0000-0000-000000000001',
@@ -606,6 +626,9 @@ CREATE INDEX IF NOT EXISTS idx_contacts_bounced ON contacts(bounced);
 CREATE INDEX IF NOT EXISTS idx_contacts_last_seen_at ON contacts(last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_campaigns_client_id ON campaigns(client_id);
 CREATE INDEX IF NOT EXISTS idx_pilot_requests_status_created_at ON pilot_requests(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_manual_touches_status_created_at ON manual_touches(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_manual_touches_channel_created_at ON manual_touches(channel, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_manual_touches_client_id ON manual_touches(client_id);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_leads_client_id_status ON leads(client_id, status);
 CREATE INDEX IF NOT EXISTS idx_leads_campaign_id ON leads(campaign_id);
@@ -671,6 +694,13 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'pilot_requests_set_updated_at') THEN
     CREATE TRIGGER pilot_requests_set_updated_at
     BEFORE UPDATE ON pilot_requests
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'manual_touches_set_updated_at') THEN
+    CREATE TRIGGER manual_touches_set_updated_at
+    BEFORE UPDATE ON manual_touches
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
   END IF;

@@ -6,6 +6,7 @@ import type {
   ClientOnboardingStatus,
   MailboxStatusView,
   OperatorClientStatuses,
+  OperatorManualTouches,
   OperatorPilotRequests,
   OperatorReviewQueues,
   OperatorSafety,
@@ -45,4 +46,20 @@ export async function getOperatorClientStatuses(): Promise<OperatorClientStatuse
 
 export async function getOperatorPilotRequests(): Promise<OperatorPilotRequests> {
   return fetchBackendJson<OperatorPilotRequests>('/api/v1/operator/pilot-requests');
+}
+
+export async function getOperatorManualTouches(filters: {
+  channel?: string;
+  status?: string;
+} = {}): Promise<OperatorManualTouches> {
+  const params = new URLSearchParams();
+  if (filters.channel) {
+    params.set('channel', filters.channel);
+  }
+  if (filters.status) {
+    params.set('status', filters.status);
+  }
+
+  const suffix = params.size > 0 ? `?${params.toString()}` : '';
+  return fetchBackendJson<OperatorManualTouches>(`/api/v1/operator/manual-touches${suffix}`);
 }

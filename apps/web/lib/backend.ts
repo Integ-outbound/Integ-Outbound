@@ -61,3 +61,13 @@ export async function postBackendJson<TResponse>(
     body: JSON.stringify(body)
   });
 }
+
+export async function patchBackendJson<TResponse>(
+  path: string,
+  body: unknown
+): Promise<TResponse> {
+  return fetchBackendJson<TResponse>(path, {
+    method: 'PATCH',
+    body: JSON.stringify(body)
+  });
+}

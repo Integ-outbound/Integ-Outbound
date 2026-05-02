@@ -28,6 +28,22 @@ export interface PilotRequest {
   updated_at: string;
 }
 
+export interface ManualTouch {
+  id: string;
+  client_id: string | null;
+  lead_id: string | null;
+  company_name: string | null;
+  person_name: string | null;
+  channel: 'email' | 'linkedin' | 'instagram' | 'facebook' | 'contact_form' | 'whatsapp' | 'other';
+  message_body: string | null;
+  status: 'planned' | 'sent' | 'replied' | 'interested' | 'rejected' | 'booked_call' | 'closed';
+  sent_at: string | null;
+  reply_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Company {
   id: string;
   domain: string;

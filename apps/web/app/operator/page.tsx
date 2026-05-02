@@ -24,6 +24,9 @@ export default async function OperatorPage() {
               <Link className="secondary-button" href="/operator/pilot-requests">
                 Pilot requests
               </Link>
+              <Link className="secondary-button" href="/operator/manual-touches">
+                Manual touches
+              </Link>
               <Link className="secondary-button" href="/operator/review">
                 Review queues
               </Link>
