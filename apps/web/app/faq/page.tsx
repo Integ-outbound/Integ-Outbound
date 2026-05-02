@@ -11,7 +11,15 @@ export default function FaqPage() {
         <div className="faq-list">
           <FAQItem
             question="Is this a SaaS tool or a managed service?"
-            answer="Today it is best understood as software plus managed execution. The software supports onboarding, Gmail connection, reply sync, review visibility, and operator workflow, while the service side helps agencies run the work credibly."
+            answer="Today it is best understood as an AI-powered outbound operating system plus managed execution. The software supports onboarding, reply sync, review visibility, and operator workflow, while the service side helps agencies run the work credibly."
+          />
+          <FAQItem
+            question="Why use Integ instead of hiring SDRs?"
+            answer="Hiring SDRs can work, but it is expensive and slow before the channel is proven. Integ lets agencies test outbound with a managed AI-assisted workflow first, without taking on the cost, training, and management burden of a full team."
+          />
+          <FAQItem
+            question="Is Integ cheaper than building an internal outbound team?"
+            answer="Yes, for the initial stage. A full internal team can require salaries, tools, data, training, and management. Integ starts with a focused pilot and scales only when there is signal."
           />
           <FAQItem
             question="Do clients give Gmail passwords?"
@@ -28,6 +36,14 @@ export default function FaqPage() {
           <FAQItem
             question="What happens if replies come in?"
             answer="Replies are synced, classified, and used to stop future follow-ups. Interested replies are handed to humans so the next step is handled intentionally."
+          />
+          <FAQItem
+            question="Does AI do all the work?"
+            answer="No. AI helps with research, drafting, organization, and classification. Human review still matters for quality, strategy, and sensitive decisions. The product direction is more autonomous over time, but current execution is intentionally controlled."
+          />
+          <FAQItem
+            question="What is the long-term vision?"
+            answer="The long-term vision is an outbound operating system that can take a client's target market and manage more of the workflow automatically: sourcing, outreach, replies, follow-up, learning, and handoff. The current model is AI-assisted and human-reviewed so quality stays high while the system improves."
           />
           <FAQItem
             question="Do you use generic lead lists?"

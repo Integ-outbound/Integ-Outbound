@@ -27,13 +27,13 @@ export default function PricingPage() {
             ctaLabel="Start pilot"
           />
           <PricingCard
-            title="Managed Outbound Engine"
+            title="Managed Client Acquisition"
             price="$1,500-$3,000/mo"
             summary="Best for ongoing outbound execution and iteration."
             items={[
               'ongoing campaign waves',
               'source and verify contacts',
-              'Gmail-based sending',
+              'controlled sending',
               'reply classification',
               'follow-up management',
               'reporting',

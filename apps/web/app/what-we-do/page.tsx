@@ -1,15 +1,15 @@
 import { CTASection, FeatureCard, MarketingPage, Section } from '@/components/marketing';
 
 const workflow = [
-  'Define the ICP',
-  'Source target accounts',
-  'Find and verify contacts',
-  'Generate personalized outreach',
-  'Send through connected Gmail inboxes',
+  'Define the target market',
+  'Source matching accounts',
+  'Find relevant contacts',
+  'Build campaign strategy',
+  'Generate human-reviewed outreach',
+  'Launch controlled sending',
   'Sync and classify replies',
-  'Stop follow-ups after replies',
-  'Hand interested replies to humans',
-  'Report outcomes'
+  'Stop irrelevant follow-ups',
+  'Hand qualified conversations to humans'
 ];
 
 export default function WhatWeDoPage() {
@@ -31,18 +31,18 @@ export default function WhatWeDoPage() {
                   : index === 1
                     ? 'Build the account universe that fits the campaign objective instead of reaching for a generic broad list.'
                     : index === 2
-                      ? 'Find usable contacts and verify what can be verified before messages go out.'
+                      ? 'Find usable contacts and prioritize the right buyers before messages go out.'
                       : index === 3
-                        ? 'Create personalized outreach that reflects the account, the offer, and the actual campaign angle.'
+                        ? 'Turn the offer and market into an outreach angle that makes sense for the prospect instead of defaulting to generic copy.'
                         : index === 4
-                          ? 'Use connected Gmail inboxes through Google OAuth rather than shared passwords or untracked sending setups.'
+                          ? 'AI drafts outreach around the account, market, and offer while humans review quality before launch.'
                           : index === 5
-                            ? 'Integ syncs replies and classifies intent so the team can see what is happening quickly.'
+                            ? 'Use connected sending infrastructure with review gates, safety checks, and controlled execution.'
                             : index === 6
-                              ? 'When someone replies, the system can stop future follow-ups instead of continuing blindly.'
-                              : index === 7
-                                ? 'Interested responses are routed back to humans so the conversation quality stays intact.'
-                                : 'Operators and clients can review the outcome signals without exposing launch or send controls publicly.'
+                              ? 'Integ syncs replies and classifies intent so the team can see what is happening quickly.'
+                            : index === 7
+                                ? 'When someone replies, the system can stop future follow-ups instead of continuing blindly.'
+                                : 'Interested responses are routed back to humans so conversation quality and next-step judgment stay intact.'
               }
             />
           ))}
@@ -57,12 +57,66 @@ export default function WhatWeDoPage() {
         <div className="split-band">
           <FeatureCard
             title="What the software handles"
-            body="Onboarding, Gmail connection, protected backend calls, reply sync, review visibility, and operator-safe workflow coordination."
+            body="Onboarding, campaign coordination, protected backend calls, reply sync, review visibility, and operator-safe workflow coordination."
           />
           <FeatureCard
             title="What humans still handle"
             body="Campaign judgment, sensitive review decisions, interested-reply handoff, and the practical tradeoffs that still benefit from operator oversight."
           />
+        </div>
+      </Section>
+
+      <Section
+        eyebrow="Why not just hire SDRs?"
+        title="Hiring a team before proving the channel is expensive."
+        description="An internal SDR motion requires people, tools, training, management, data, messaging, QA, and reporting. That can work later, but it is a heavy first step."
+      >
+        <p className="muted">
+          Integ gives agencies a leaner first step: test outbound with a managed
+          AI-assisted workflow, then decide what deserves scale.
+        </p>
+        <div className="panel">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Internal SDR team</th>
+                <th>Integ pilot</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>High fixed cost</td>
+                <td>Lower starting cost</td>
+              </tr>
+              <tr>
+                <td>Hiring and ramp time</td>
+                <td>Faster campaign launch</td>
+              </tr>
+              <tr>
+                <td>Needs management</td>
+                <td>Managed execution</td>
+              </tr>
+              <tr>
+                <td>Needs tooling</td>
+                <td>AI-powered internal system</td>
+              </tr>
+              <tr>
+                <td>Needs data process</td>
+                <td>Focused target segment</td>
+              </tr>
+              <tr>
+                <td>Quality varies by rep</td>
+                <td>Human-reviewed quality</td>
+              </tr>
+              <tr>
+                <td>Expensive before signal</td>
+                <td>Built to test signal first</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="note-card">
+          <strong>Do not build the full sales machine before proving the market will respond.</strong>
         </div>
       </Section>
 
