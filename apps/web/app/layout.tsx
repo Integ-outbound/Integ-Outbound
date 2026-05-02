@@ -16,8 +16,9 @@ const monoFont = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Integ Outbound',
-  description: 'Onboarding and operator visibility for integ-outbound.'
+  title: 'Integ | AI-assisted outbound infrastructure',
+  description:
+    'Integ helps agencies run controlled outbound pilots with Gmail-based sending, reply sync, human review, and operational visibility.'
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

@@ -12,11 +12,29 @@ export default async function SignupPage({
     <Shell
       title="Create the client onboarding record."
       eyebrow="Client signup"
-      description="This creates the client profile only. It does not create campaigns, leads, or outbound activity."
+      description="This step creates a protected onboarding record only. It does not create campaigns, leads, launch outbound, or expose send controls."
       aside={
-        <Panel title="What happens next">
-          <p>After signup, the frontend stores a signed onboarding session cookie and sends you into the Gmail connection checklist.</p>
-        </Panel>
+        <>
+          <Panel title="What happens next">
+            <dl className="detail-list">
+              <div>
+                <dt>1. Profile is created</dt>
+                <dd>The frontend stores a signed onboarding session and keeps the next steps scoped to this client record.</dd>
+              </div>
+              <div>
+                <dt>2. Gmail can be connected</dt>
+                <dd>Google OAuth is used for mailbox connection. No Gmail password is collected here.</dd>
+              </div>
+              <div>
+                <dt>3. Operator visibility stays separate</dt>
+                <dd>Client onboarding and internal operator review remain distinct surfaces with different access gates.</dd>
+              </div>
+            </dl>
+          </Panel>
+          <Panel title="Before you submit" tone="accent">
+            <p>The strongest inputs here are a clear service type and a practical ICP note. That gives the pilot conversation a much better starting point than a generic market description.</p>
+          </Panel>
+        </>
       }
     >
       {params.error ? <div className="banner banner-error">{params.error}</div> : null}

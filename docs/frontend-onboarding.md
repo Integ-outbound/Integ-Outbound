@@ -1,11 +1,15 @@
-# Frontend Onboarding MVP
+# Frontend Marketing And Onboarding MVP
 
 ## Purpose
 
-This frontend is a narrow onboarding and visibility surface for `integ-outbound.com`.
+This frontend now has two jobs:
+
+- present `integ-outbound.com` as a credible public-facing marketing and onboarding site
+- provide a narrow onboarding and visibility surface for early clients and operators
 
 It supports:
 
+- public positioning pages for prospects, early clients, and potential backers
 - client signup and onboarding
 - Gmail OAuth connection through the existing backend
 - operator visibility into onboarding, review, and safety state
@@ -13,6 +17,7 @@ It supports:
 
 It intentionally does **not** support:
 
+- a full self-serve SaaS dashboard
 - client-side campaign launch
 - send controls
 - lead creation
@@ -87,7 +92,17 @@ Production backend values:
 ## Client Onboarding Flow
 
 - `/`
-  - landing and links only
+  - public marketing landing page with CTA to onboarding
+- `/about`
+  - founder-led positioning and scope
+- `/what-we-do`
+  - software-plus-service workflow explanation
+- `/products`
+  - offer cards for pilot, managed execution, infrastructure, and onboarding
+- `/pricing`
+  - indicative pricing ranges only, not binding terms
+- `/faq`
+  - practical prospect answers, including Gmail OAuth explanation
 - `/signup`
   - creates the client profile
 - `/onboarding`
@@ -121,6 +136,19 @@ Production backend values:
 - `GET /api/v1/mailboxes/google/oauth/start` now requires `client_id`.
 - The OAuth callback binds the mailbox to the signed `client_id`; it does not create orphan mailbox ownership.
 - Multi-client write isolation must remain enforced in the backend before any future client-facing mutation actions are added.
+- Public marketing pages must not call protected operator APIs.
+- Client-facing pages remain read-only for operational state; no self-serve sending is exposed yet.
+
+## Public Site Purpose
+
+The public site is meant to:
+
+- explain what Integ does without overstating current automation maturity
+- convert qualified interest into a controlled pilot conversation
+- direct prospects into `/signup` as the onboarding CTA
+- show indicative pricing and workflow clarity without opening self-serve campaign controls
+
+The pricing page is intentionally indicative rather than binding. Final scope still depends on market, data requirements, send volume, inbox setup, and delivery expectations.
 
 ## Calendar Future Scope
 

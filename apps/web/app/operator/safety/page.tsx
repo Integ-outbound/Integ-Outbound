@@ -12,6 +12,14 @@ export default async function OperatorSafetyPage() {
       title="Safety checks"
       eyebrow="Operator / Safety"
       description="This page surfaces the operational safety counters you asked for, including orphan checks and sync health."
+      aside={
+        <Panel title="Interpretation" tone="warning">
+          <p>
+            The safest state before enabling any background sending behavior is still a clean
+            ownership model, healthy mailboxes, and no unexplained send-ready backlog.
+          </p>
+        </Panel>
+      }
     >
       <StatGrid
         items={[
@@ -40,7 +48,7 @@ export default async function OperatorSafetyPage() {
               label: 'Sync health',
               value: (
                 <span className="code">
-                  healthy {safety.sync_health.healthy} · stale {safety.sync_health.stale} · error {safety.sync_health.error} · never synced {safety.sync_health.never_synced} · running {safety.sync_health.running}
+                  healthy {safety.sync_health.healthy} / stale {safety.sync_health.stale} / error {safety.sync_health.error} / never synced {safety.sync_health.never_synced} / running {safety.sync_health.running}
                 </span>
               )
             }
