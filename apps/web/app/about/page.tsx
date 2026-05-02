@@ -4,79 +4,79 @@ export default function AboutPage() {
   return (
     <MarketingPage>
       <Section
-        eyebrow="About Integ"
-        title="Founder-led outbound infrastructure built for controlled execution."
-        description="Integ is building an AI-assisted outbound operating system with human-reviewed execution and practical agency workflows."
+        eyebrow="About"
+        title="We help agencies turn outbound into client opportunities."
+        description="Integ exists for agencies that are good at delivery but inconsistent at pipeline. We combine AI-assisted systems with hands-on execution to help agencies start more qualified sales conversations."
       >
         <div className="feature-grid">
           <FeatureCard
-            title="Built around real operational constraints"
-            body="The product direction is shaped by sending quality, reply sync, intent classification, follow-up stopping, and operator visibility instead of abstract automation claims."
+            title="Built for agencies"
+            body="The focus is founder-led agencies that want more clients without adding SDR hiring, list management, and reply chasing to the founder's plate."
           />
           <FeatureCard
-            title="Human review is still part of the system"
-            body="Integ does not claim to be fully autonomous today. Human review still matters for outbound quality, reply handling, and operational safety."
-          />
-          <FeatureCard
-            title="Founder-led and execution-focused"
-            body="This is an early-stage, hands-on effort aimed at getting controlled outbound pilots working credibly before widening the surface area."
-          />
-          <FeatureCard
-            title="Agency-oriented from the start"
-            body="The clearest fit is helping agencies and service teams run outbound pilots with better infrastructure and repeatable process support."
+            title="Done-for-you execution"
+            body="The buyer does not need to manage the research, messaging, outreach, and follow-up machinery to get a campaign moving."
           />
         </div>
       </Section>
 
       <Section
-        eyebrow="Why us"
-        title="We use software to compress the work of a small outbound team."
-        description="Traditional outbound requires multiple moving parts: list builders, SDRs, copywriters, inbox managers, follow-up tracking, reply handling, and reporting. Integ is being built to compress that workflow into one AI-assisted operating system with human oversight."
+        eyebrow="Why we exist"
+        title="Good agencies should not depend only on referrals."
+        description="Referrals are great, but they are not enough. Agencies need a reliable way to test markets, reach prospects, and create conversations without hiring a full sales team before the process is proven."
+      >
+        <div className="product-highlight">
+          <p className="section-kicker">The buyer problem</p>
+          <h3>More opportunities without building an SDR team first.</h3>
+          <p className="muted">
+            That is the core reason Integ exists: to help agencies create pipeline
+            through a controlled outbound process before they commit to heavier internal
+            headcount.
+          </p>
+        </div>
+      </Section>
+
+      <Section
+        eyebrow="Our approach"
+        title="Outcome first. Systems underneath."
+        description="The client-facing goal is simple: more qualified conversations. Behind the scenes, we use software, AI assistance, and human review to organize the research, outreach, follow-up, and reply handling."
       >
         <div className="feature-grid">
           <FeatureCard
-            title="Less ramp time"
-            body="No long hiring cycle, no SDR onboarding period, no weeks spent building basic outbound operations from scratch."
+            title="More qualified replies"
+            body="The campaign is built to produce real conversations, not vanity activity."
           />
           <FeatureCard
-            title="Less overhead"
-            body="Instead of paying for a full sales team before the channel is proven, agencies can start with a focused pilot."
-          />
-          <FeatureCard
-            title="More operational leverage"
-            body="AI handles repetitive coordination work while humans focus on judgment, strategy, and live opportunities."
-          />
-          <FeatureCard
-            title="Built to compound"
-            body="Every campaign creates learning: which segments respond, what messages work, what objections appear, and where the next opportunity is."
+            title="Human-reviewed execution"
+            body="AI speeds up the repetitive work, while humans protect quality and keep the campaign grounded."
           />
         </div>
       </Section>
 
       <Section
-        eyebrow="Why now"
-        title="The gap is not just lead generation. It is operational discipline."
-        description="Most teams do not fail because they never found data. They fail because the workflow from sourcing to sending to reply handling is scattered and brittle."
+        eyebrow="Current focus"
+        title="Built first for agencies."
+        description="We are starting with agencies because the pain is obvious: inconsistent pipeline, founder-led sales, expensive SDR hires, weak lead vendors, and too much manual outbound work."
       >
-        <div className="split-band">
+        <div className="feature-grid">
           <FeatureCard
-            title="Integ's angle"
-            body="Use software to structure the work, keep operators in control of sensitive decisions, and let the system handle repetitive coordination."
+            title="Paid media and PPC"
+            body="Teams that can deliver strong outcomes but need more predictable client acquisition."
           />
           <FeatureCard
-            title="Current scope"
-            body="Controlled outbound pilots, onboarding, reply sync, intent classification, and human handoff. No self-serve campaign launching yet."
+            title="Growth and B2B services"
+            body="Agencies with clear offers and enough deal value to justify a focused outbound campaign."
           />
         </div>
       </Section>
 
       <CTASection
-        title="See how the workflow actually runs."
-        body="If the positioning fits, the next useful page is the concrete step-by-step workflow rather than more broad claims."
-        primaryHref="/what-we-do"
-        primaryLabel="See the workflow"
-        secondaryHref="/signup"
-        secondaryLabel="Start onboarding"
+        title="Start a pilot"
+        body="If outbound should become a more reliable source of client opportunities, begin with one focused campaign and learn from the market."
+        primaryHref="/signup"
+        primaryLabel="Start pilot"
+        secondaryHref="/contact"
+        secondaryLabel="Contact"
       />
     </MarketingPage>
   );

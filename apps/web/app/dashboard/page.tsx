@@ -7,30 +7,50 @@ import { requireClientSession } from '@/lib/session';
 export default async function DashboardPage() {
   const session = await requireClientSession();
   const status = await getClientOnboardingStatus(session.clientId);
+  const targetSegment = status.client.target_icp_notes?.trim() || 'Target segment not defined yet.';
+  const campaignStatus =
+    status.counts.active_campaigns > 0
+      ? 'Campaign live'
+      : status.counts.total_campaigns > 0
+        ? 'Campaign prepared'
+        : 'Pilot preparation';
 
   return (
     <Shell
-      title={`${status.client.name} status dashboard`}
+      title="Pilot status"
       eyebrow="Client visibility"
-      description="This page is intentionally read-only. It surfaces mailbox health, campaign summary, and review workload without any launch or send controls."
+      description="Track where your outbound pilot stands."
       aside={
-        <Panel title="What this page is for" tone="accent">
+        <Panel title="Operator notes" tone="accent">
           <p>
-            Use this surface to confirm mailbox connection, see whether review queues are building,
-            and understand the current operating state without exposing sending actions to clients.
+            This page is intentionally read-only. Status updates appear here without exposing
+            any public campaign launch or send controls.
           </p>
         </Panel>
       }
     >
+      {status.counts.total_campaigns === 0 &&
+      status.counts.drafts_pending_review === 0 &&
+      status.counts.replies_pending_review === 0 ? (
+        <Panel title="Current state">
+          <p>
+            Your pilot is being prepared. Status updates will appear here once the campaign
+            setup begins.
+          </p>
+        </Panel>
+      ) : null}
       <StatGrid
         items={[
-          { label: 'Active campaigns', value: status.counts.active_campaigns, hint: 'Operator-controlled only' },
-          { label: 'Total campaigns', value: status.counts.total_campaigns },
-          { label: 'Drafts pending review', value: status.counts.drafts_pending_review },
-          { label: 'Replies pending review', value: status.counts.replies_pending_review }
+          { label: 'Campaign status', value: campaignStatus },
+          { label: 'Prospects prepared', value: status.counts.send_ready },
+          { label: 'Messages pending review', value: status.counts.drafts_pending_review },
+          { label: 'Replies needing follow-up', value: status.counts.replies_pending_review }
         ]}
       />
-      <Panel title="Connected mailbox status">
+      <Panel title="Target segment">
+        <p className="status-copy">{targetSegment}</p>
+      </Panel>
+      <Panel title="Connected inbox status">
         <DataList
           rows={status.mailboxes.map((mailbox) => ({
             label: mailbox.email,
@@ -40,7 +60,7 @@ export default async function DashboardPage() {
               </span>
             )
           }))}
-          emptyMessage="No mailbox connected yet."
+          emptyMessage="No inbox connected yet."
         />
       </Panel>
       <Panel title="Current guardrail">

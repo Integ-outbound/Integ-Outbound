@@ -8,7 +8,7 @@ export function MarketingNav() {
         <span className="brand-mark">IN</span>
         <span className="brand-text">
           <span className="brand-name">Integ</span>
-          <span className="brand-tag">AI-assisted outbound infrastructure</span>
+          <span className="brand-tag">AI outbound for agencies</span>
         </span>
       </Link>
       <nav className="nav-links">
@@ -27,11 +27,14 @@ export function MarketingNav() {
         <Link className="nav-link" href="/faq">
           FAQ
         </Link>
-        <Link className="secondary-button nav-cta" href="/operator/login">
-          Operator login
+        <Link className="nav-link" href="/contact">
+          Contact
         </Link>
         <Link className="primary-button nav-cta" href="/signup">
           Start pilot
+        </Link>
+        <Link className="secondary-button nav-cta" href="/operator/login">
+          Operator login
         </Link>
       </nav>
     </header>
@@ -47,20 +50,25 @@ export function MarketingFooter() {
             <span className="brand-mark">IN</span>
             <span className="brand-text">
               <span className="brand-name">Integ</span>
-              <span className="brand-tag">Controlled outbound pilots for agencies</span>
+              <span className="brand-tag">AI outbound for agencies</span>
             </span>
           </div>
+          <p className="footer-note">More qualified sales conversations for agencies.</p>
           <p className="footer-note">
-            Software plus managed execution for agencies that want controlled outbound without
-            spinning up a full SDR team.
+            <a href="mailto:mark@integ-outbound.com">mark@integ-outbound.com</a>
+          </p>
+          <p className="footer-note">
+            Integ runs controlled outbound campaigns. We do not guarantee revenue or booked
+            meetings.
           </p>
         </div>
         <div className="footer-links">
           <Link href="/about">About</Link>
-          <Link href="/what-we-do">Workflow</Link>
+          <Link href="/what-we-do">What we do</Link>
           <Link href="/products">Products</Link>
           <Link href="/pricing">Pricing</Link>
           <Link href="/faq">FAQ</Link>
+          <Link href="/contact">Contact</Link>
           <Link href="/signup">Start pilot</Link>
         </div>
       </div>
@@ -219,16 +227,16 @@ export function PricingCard({
 
 export function OfferCard({
   title,
-  who,
+  summary,
   included,
-  useCase,
+  bestFor,
   ctaHref,
   ctaLabel
 }: {
   title: string;
-  who: string;
+  summary: string;
   included: string;
-  useCase: string;
+  bestFor: string;
   ctaHref: string;
   ctaLabel: string;
 }) {
@@ -236,16 +244,16 @@ export function OfferCard({
     <article className="offer-card">
       <div className="offer-card-head">
         <h3>{title}</h3>
-        <p>{who}</p>
+        <p>{summary}</p>
       </div>
       <dl className="offer-card-list">
         <div>
-          <dt>Included</dt>
+          <dt>Includes</dt>
           <dd>{included}</dd>
         </div>
         <div>
-          <dt>Use case</dt>
-          <dd>{useCase}</dd>
+          <dt>Best for</dt>
+          <dd>{bestFor}</dd>
         </div>
       </dl>
       <div className="button-row">

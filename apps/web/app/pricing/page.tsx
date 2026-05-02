@@ -5,22 +5,22 @@ export default function PricingPage() {
     <MarketingPage>
       <Section
         eyebrow="Pricing"
-        title="Indicative pricing for controlled outbound work."
-        description="Pricing depends on market, data requirements, send volume, inbox setup, and scope. These ranges are useful for qualification and planning, not binding commitments."
+        title="Pilot-first pricing for agency growth."
+        description="Start small, prove the segment, then expand if the campaign creates real sales conversations."
       >
         <div className="pricing-grid">
           <PricingCard
             title="Outbound Pilot"
-            price="$750-$1,500 / 30-day pilot"
-            summary="Best for testing one market and one offer in a controlled first wave."
+            price="$750-$1,500"
+            summary="30-day campaign test"
             items={[
-              '1 ICP segment',
-              'target account sourcing',
-              'contact discovery where possible',
-              'verified outreach list',
-              'personalized messaging',
+              'one target segment',
+              'prospect list building',
+              'contact research where possible',
+              'outreach messaging',
               'controlled sending',
-              'reply handling',
+              'follow-up handling',
+              'reply tracking',
               'weekly report'
             ]}
             ctaHref="/signup"
@@ -29,46 +29,60 @@ export default function PricingPage() {
           <PricingCard
             title="Managed Client Acquisition"
             price="$1,500-$3,000/mo"
-            summary="Best for ongoing outbound execution and iteration."
+            summary="Ongoing outbound execution"
             items={[
-              'ongoing campaign waves',
-              'source and verify contacts',
-              'controlled sending',
-              'reply classification',
+              'monthly campaign waves',
+              'new prospect segments',
+              'contact sourcing',
+              'message testing',
               'follow-up management',
-              'reporting',
-              'optimization'
+              'reply handling',
+              'reporting and optimization'
             ]}
             featured
             ctaHref="/signup"
             ctaLabel="Discuss managed plan"
           />
           <PricingCard
-            title="Custom / White-label Ops"
+            title="White-label / Custom Ops"
             price="Custom"
-            summary="Best for outbound or marketing agencies needing infrastructure or fulfillment support."
+            summary="For agencies that want outbound support for themselves or their clients"
             items={[
-              'custom workflow scope',
-              'agency-aligned delivery model',
-              'white-label or embedded support',
-              'tailored reporting and operating process'
+              'custom campaign workflow',
+              'prospect sourcing support',
+              'outreach operations',
+              'reporting',
+              'process support'
             ]}
-            ctaHref="/signup"
-            ctaLabel="Request custom scope"
+            ctaHref="/contact"
+            ctaLabel="Contact us"
           />
         </div>
-        <p className="muted">
-          Pricing depends on market, data requirements, send volume, inbox setup, and scope.
-        </p>
+        <p className="muted">Pricing depends on target market, data requirements, volume, and scope.</p>
+      </Section>
+
+      <Section
+        eyebrow="No fake guarantees"
+        title="No fake guarantees."
+        description="We do not promise guaranteed clients or guaranteed revenue. We run a controlled outbound process designed to create qualified sales conversations. Results depend on the offer, market, targeting, and follow-up."
+      >
+        <div className="product-highlight">
+          <p className="section-kicker">Honest expectations</p>
+          <h3>Pipeline work, not fantasy promises.</h3>
+          <p className="muted">
+            The goal is to create qualified replies and client opportunities through a
+            disciplined outbound process, not to sell made-up certainty.
+          </p>
+        </div>
       </Section>
 
       <CTASection
-        title="Use pricing as a scope signal, not a shortcut."
-        body="The best starting point is still a short onboarding and pilot conversation so the actual market, sending setup, and delivery expectations are clear."
+        title="Use pricing as a starting point, then scope the pilot around the market."
+        body="The best next step is a short conversation about your agency, the clients you want, and the segment worth testing first."
         primaryHref="/signup"
-        primaryLabel="Start onboarding"
-        secondaryHref="/what-we-do"
-        secondaryLabel="See the workflow"
+        primaryLabel="Start pilot"
+        secondaryHref="/contact"
+        secondaryLabel="Contact"
       />
     </MarketingPage>
   );

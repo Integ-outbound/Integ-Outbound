@@ -25,7 +25,7 @@ export function Shell({
           <span className="brand-mark">IN</span>
           <span className="brand-text">
             <span className="brand-name">Integ</span>
-            <span className="brand-tag">Outbound onboarding and operations</span>
+            <span className="brand-tag">AI outbound for agencies</span>
           </span>
         </Link>
         <nav className="app-nav-links">
@@ -60,7 +60,7 @@ export function Shell({
             Start pilot
           </Link>
           <Link className="ghost-button" href="/operator/login">
-            Operator access
+            Operator login
           </Link>
         </div>
       </header>

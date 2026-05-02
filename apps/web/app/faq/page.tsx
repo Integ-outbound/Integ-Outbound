@@ -5,74 +5,68 @@ export default function FaqPage() {
     <MarketingPage>
       <Section
         eyebrow="FAQ"
-        title="Clear answers for the practical questions."
-        description="The goal is to stay concrete about what Integ already supports and what still remains controlled or human-reviewed."
+        title="Clear answers for practical buyers."
+        description="This page stays focused on what agencies care about: client opportunities, qualified sales conversations, and a controlled outbound process."
       >
         <div className="faq-list">
           <FAQItem
-            question="Is this a SaaS tool or a managed service?"
-            answer="Today it is best understood as an AI-powered outbound operating system plus managed execution. The software supports onboarding, reply sync, review visibility, and operator workflow, while the service side helps agencies run the work credibly."
+            question="What does Integ actually do?"
+            answer="We help agencies run outbound campaigns that create more qualified sales conversations. That includes targeting, prospect list building, contact research, outreach messaging, follow-up, reply handling, and reporting."
           />
           <FAQItem
-            question="Why use Integ instead of hiring SDRs?"
-            answer="Hiring SDRs can work, but it is expensive and slow before the channel is proven. Integ lets agencies test outbound with a managed AI-assisted workflow first, without taking on the cost, training, and management burden of a full team."
+            question="Is this software or a service?"
+            answer="It is a managed service powered by internal software. Clients get the campaign execution and outcome-focused workflow, not another tool they need to manage."
           />
           <FAQItem
-            question="Is Integ cheaper than building an internal outbound team?"
-            answer="Yes, for the initial stage. A full internal team can require salaries, tools, data, training, and management. Integ starts with a focused pilot and scales only when there is signal."
+            question="Who is this for?"
+            answer="Founder-led agencies, especially paid media, PPC, performance, growth, and B2B service agencies that want more client opportunities."
           />
           <FAQItem
-            question="Do clients give Gmail passwords?"
-            answer="No. Clients connect Gmail through Google OAuth. The onboarding flow is built around OAuth-based connection rather than collecting mailbox passwords."
+            question="Do you guarantee new clients?"
+            answer="No. We do not make fake guarantees. We build and run campaigns designed to create qualified conversations. Whether those conversations turn into clients depends on the offer, pricing, market, and sales follow-up."
           />
           <FAQItem
-            question="How does Gmail connection work?"
-            answer="A client completes onboarding, then clicks Connect Gmail. The frontend starts a server-side request to the backend OAuth flow, Google returns to the API callback, and the mailbox is attached to the correct client record."
+            question="What makes this different from buying a lead list?"
+            answer="We do not just hand over random leads. We build a campaign-specific prospect list, create relevant outreach, launch the campaign, and help manage replies."
           />
           <FAQItem
-            question="Do you guarantee booked meetings?"
-            answer="No. Integ is focused on controlled outbound execution, better messaging operations, safer sending, and cleaner reply handling. Outcome quality depends on market, offer, inbox health, and many variables outside a blanket guarantee."
+            question="What happens after someone replies?"
+            answer="Interested replies are tracked and surfaced for human follow-up so real opportunities do not get buried."
           />
           <FAQItem
-            question="What happens if replies come in?"
-            answer="Replies are synced, classified, and used to stop future follow-ups. Interested replies are handed to humans so the next step is handled intentionally."
+            question="Can I review the outreach before it goes out?"
+            answer="Yes. Early campaigns are controlled and human-reviewed."
           />
           <FAQItem
-            question="Does AI do all the work?"
-            answer="No. AI helps with research, drafting, organization, and classification. Human review still matters for quality, strategy, and sensitive decisions. The product direction is more autonomous over time, but current execution is intentionally controlled."
-          />
-          <FAQItem
-            question="What is the long-term vision?"
-            answer="The long-term vision is an outbound operating system that can take a client's target market and manage more of the workflow automatically: sourcing, outreach, replies, follow-up, learning, and handoff. The current model is AI-assisted and human-reviewed so quality stays high while the system improves."
-          />
-          <FAQItem
-            question="Do you use generic lead lists?"
-            answer="No. The goal is to work from a defined ICP and a targeted account set rather than a broad, context-free list."
-          />
-          <FAQItem
-            question="What kind of companies do you target?"
-            answer="That depends on the client, the offer, and the market. The workflow starts by defining the ICP before targeting or messaging work begins."
+            question="Do I need to hire SDRs?"
+            answer="No. The point is to test outbound before committing to a full sales team."
           />
           <FAQItem
             question="How long does setup take?"
-            answer="A pilot setup can move quickly once the client profile, Gmail connection, offer positioning, and targeting assumptions are in place."
+            answer="A focused pilot can usually be prepared in a few days once the target market, offer, and campaign scope are clear."
           />
           <FAQItem
-            question="Is outreach automated?"
-            answer="Parts of the workflow are AI-assisted and systematized, but the current posture is controlled outbound with human review still in the loop where it matters."
+            question="How do we start?"
+            answer={
+              <>
+                Apply for a pilot or email <a href="mailto:mark@integ-outbound.com">mark@integ-outbound.com</a>.
+              </>
+            }
           />
           <FAQItem
-            question="Can clients review messages before sending?"
-            answer="That can be part of the operating process, but the current frontend does not expose self-serve campaign launch or send controls to clients."
+            question="Do you need my Gmail password?"
+            answer="No. If inbox access is needed, it is handled through secure Google authorization. We never ask for Gmail passwords."
           />
         </div>
       </Section>
 
       <CTASection
-        title="If the questions match, the next step is onboarding."
-        body="The onboarding flow is the cleanest way to start a pilot conversation without exposing campaign launch controls or unsafe client-side actions."
+        title="If the fit is right, the next step is a pilot."
+        body="Share your agency, offer, and target market, and we can see whether a focused outbound campaign makes sense."
         primaryHref="/signup"
         primaryLabel="Start pilot"
+        secondaryHref="/contact"
+        secondaryLabel="Contact"
       />
     </MarketingPage>
   );

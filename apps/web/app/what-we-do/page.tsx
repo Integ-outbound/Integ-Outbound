@@ -1,15 +1,34 @@
 import { CTASection, FeatureCard, MarketingPage, Section } from '@/components/marketing';
 
 const workflow = [
-  'Define the target market',
-  'Source matching accounts',
-  'Find relevant contacts',
-  'Build campaign strategy',
-  'Generate human-reviewed outreach',
-  'Launch controlled sending',
-  'Sync and classify replies',
-  'Stop irrelevant follow-ups',
-  'Hand qualified conversations to humans'
+  {
+    title: '1. Choose the target',
+    body: "We define the ideal prospects, geography, exclusions, and campaign angle."
+  },
+  {
+    title: '2. Build the list',
+    body: 'We source companies that fit the target instead of using generic lead dumps.'
+  },
+  {
+    title: '3. Find the right people',
+    body: "We identify decision-makers likely to care about the agency's offer."
+  },
+  {
+    title: '4. Write the outreach',
+    body: "We create specific messages that connect the prospect's situation to the agency's value."
+  },
+  {
+    title: '5. Send the campaign',
+    body: 'We launch carefully, with review and limits instead of reckless volume.'
+  },
+  {
+    title: '6. Manage replies',
+    body: 'We track positive replies, questions, objections, and next steps.'
+  },
+  {
+    title: '7. Improve the campaign',
+    body: 'We use response data to refine the next wave.'
+  }
 ];
 
 export default function WhatWeDoPage() {
@@ -17,51 +36,37 @@ export default function WhatWeDoPage() {
     <MarketingPage>
       <Section
         eyebrow="What we do"
-        title="A software-plus-service workflow for controlled outbound execution."
-        description="Integ combines software and managed execution so agencies can move from targeting to reply handling without exposing clients to fragile, self-serve sending controls."
+        title="We run outbound campaigns that create sales conversations."
+        description='Integ helps agencies go from "we need more clients" to a focused outbound campaign: target market, prospect list, decision-makers, outreach, follow-up, reply handling, and reporting.'
       >
         <div className="feature-grid">
-          {workflow.map((step, index) => (
-            <FeatureCard
-              key={step}
-              title={`${index + 1}. ${step}`}
-              body={
-                index === 0
-                  ? 'Start with a narrow ICP and a real point of view on who should be targeted first.'
-                  : index === 1
-                    ? 'Build the account universe that fits the campaign objective instead of reaching for a generic broad list.'
-                    : index === 2
-                      ? 'Find usable contacts and prioritize the right buyers before messages go out.'
-                      : index === 3
-                        ? 'Turn the offer and market into an outreach angle that makes sense for the prospect instead of defaulting to generic copy.'
-                        : index === 4
-                          ? 'AI drafts outreach around the account, market, and offer while humans review quality before launch.'
-                          : index === 5
-                            ? 'Use connected sending infrastructure with review gates, safety checks, and controlled execution.'
-                            : index === 6
-                              ? 'Integ syncs replies and classifies intent so the team can see what is happening quickly.'
-                            : index === 7
-                                ? 'When someone replies, the system can stop future follow-ups instead of continuing blindly.'
-                                : 'Interested responses are routed back to humans so conversation quality and next-step judgment stay intact.'
-              }
-            />
+          {workflow.map((step) => (
+            <FeatureCard key={step.title} title={step.title} body={step.body} />
           ))}
         </div>
       </Section>
 
       <Section
-        eyebrow="Managed execution"
-        title="Integ is not just software sitting beside the work."
-        description="The current model assumes operational involvement. That is deliberate: agencies often need execution support and safety controls as much as they need a product surface."
+        eyebrow="Why this works better"
+        title="Better campaigns come from focus, relevance, and follow-through."
+        description="The goal is not more activity for its own sake. The goal is more qualified replies and stronger client opportunities."
       >
-        <div className="split-band">
+        <div className="feature-grid">
           <FeatureCard
-            title="What the software handles"
-            body="Onboarding, campaign coordination, protected backend calls, reply sync, review visibility, and operator-safe workflow coordination."
+            title="Focused targeting"
+            body="Better prospects beat bigger lists."
           />
           <FeatureCard
-            title="What humans still handle"
-            body="Campaign judgment, sensitive review decisions, interested-reply handoff, and the practical tradeoffs that still benefit from operator oversight."
+            title="Specific messaging"
+            body="People respond when the message feels relevant."
+          />
+          <FeatureCard
+            title="Consistent follow-up"
+            body="Opportunities are lost when follow-up is random."
+          />
+          <FeatureCard
+            title="Human judgment"
+            body="AI speeds up the work, but humans protect quality."
           />
         </div>
       </Section>
@@ -121,12 +126,12 @@ export default function WhatWeDoPage() {
       </Section>
 
       <CTASection
-        title="Choose the right entry point."
-        body="If the workflow matches what you need, the next question is whether you need a pilot, ongoing managed execution, or deeper infrastructure support."
-        primaryHref="/products"
-        primaryLabel="See products"
-        secondaryHref="/pricing"
-        secondaryLabel="View pricing"
+        title="See whether outbound can become a repeatable client acquisition channel."
+        body="A focused pilot campaign is the cleanest way to test the market before you commit to a bigger outbound motion."
+        primaryHref="/signup"
+        primaryLabel="Start pilot"
+        secondaryHref="/products"
+        secondaryLabel="See products"
       />
     </MarketingPage>
   );

@@ -17,25 +17,25 @@ export default async function OnboardingPage({
 
   return (
     <Shell
-      title={`${status.client.name} onboarding`}
-      eyebrow="Checklist"
-      description="This flow is intentionally limited to profile setup, mailbox connection, and status visibility. Clients still do not get launch or send controls here."
+      title="Pilot onboarding"
+      eyebrow="Setup"
+      description="Complete the setup needed to prepare your outbound pilot."
       aside={
         <>
-          <Panel title="Next steps" tone="accent">
+          <Panel title="Continue setup" tone="accent">
             <div className="button-row">
               <Link className="secondary-button" href="/onboarding/connect-gmail">
-                Connect Gmail
+                Inbox setup
               </Link>
               <Link className="secondary-button" href="/onboarding/calendar">
-                Calendar placeholder
+                Calendar info
               </Link>
               <Link className="primary-button" href="/dashboard">
-                View status dashboard
+                View pilot status
               </Link>
             </div>
           </Panel>
-          <Panel title="Mailbox snapshot">
+          <Panel title="Inbox setup">
             <DataList
               rows={status.mailboxes.map((mailbox) => ({
                 label: mailbox.email,
@@ -45,51 +45,70 @@ export default async function OnboardingPage({
                   </span>
                 )
               }))}
-              emptyMessage="No mailbox connected yet. Start with Google OAuth before expecting any sending or reply visibility."
+              emptyMessage="No inbox connected yet. If inbox access is needed, it can be connected securely through Google."
             />
           </Panel>
         </>
       }
     >
       {params.signup === 'created' ? (
-        <div className="banner banner-success">Client profile created. Continue by connecting Gmail.</div>
+        <div className="banner banner-success">Pilot onboarding is ready. Continue with setup.</div>
       ) : null}
       {params.gmail === 'connected' ? (
-        <div className="banner banner-success">Gmail connected successfully to this client record.</div>
+        <div className="banner banner-success">Inbox setup completed for this client record.</div>
       ) : null}
       <Panel title="Checklist">
         <Checklist
           items={[
-            { label: 'Client profile created', done: status.checklist.client_profile_created },
-            { label: 'Gmail connected', done: status.checklist.gmail_connected },
             {
-              label: 'Calendar connected',
-              done: status.checklist.calendar_connected,
-              note: 'Google Calendar is intentionally a placeholder in this MVP.'
+              label: 'Agency profile submitted',
+              done: status.checklist.client_profile_created
             },
             {
-              label: 'First campaign not started',
-              done: status.checklist.first_campaign_not_started,
-              note: 'Campaign launch is still operator-controlled.'
+              label: 'Target client segment defined',
+              done: Boolean(status.client.target_icp_notes?.trim()),
+              note: 'A clear target segment keeps the pilot campaign focused.'
             },
             {
-              label: 'Operator review pending',
-              done: !status.checklist.operator_review_pending,
-              note: 'This stays pending until the operator moves onboarding beyond setup.'
+              label: 'Outreach angle approved',
+              done:
+                status.counts.total_campaigns > 0 ||
+                status.counts.drafts_pending_review > 0 ||
+                status.counts.send_ready > 0 ||
+                status.counts.replies_pending_review > 0,
+              note: 'The campaign angle is reviewed before the pilot moves forward.'
+            },
+            {
+              label: 'Inbox setup completed if needed',
+              done: status.checklist.gmail_connected,
+              note: 'If inbox access is needed, it is connected securely through Google. We never ask for your password.'
+            },
+            {
+              label: 'Campaign pending review',
+              done: status.checklist.operator_review_pending,
+              note: 'The pilot is reviewed before it moves into the next stage.'
             }
           ]}
         />
       </Panel>
+      <Panel title="What happens here">
+        <dl className="detail-list">
+          <div>
+            <dt>Inbox access</dt>
+            <dd>If inbox access is needed, it is connected securely through Google. We never ask for your password.</dd>
+          </div>
+          <div>
+            <dt>Calendar support</dt>
+            <dd>Calendar support is coming later. For now, calls can be booked through your existing scheduling link.</dd>
+          </div>
+        </dl>
+      </Panel>
       <StatGrid
         items={[
-          { label: 'Mailboxes', value: status.mailboxes.length },
-          { label: 'Pending drafts', value: status.counts.drafts_pending_review },
-          { label: 'Pending replies', value: status.counts.replies_pending_review },
-          {
-            label: 'Send-ready leads',
-            value: status.counts.send_ready,
-            hint: 'Client-facing pages still do not expose send controls.'
-          }
+          { label: 'Connected inboxes', value: status.mailboxes.length },
+          { label: 'Messages pending review', value: status.counts.drafts_pending_review },
+          { label: 'Replies needing follow-up', value: status.counts.replies_pending_review },
+          { label: 'Prospects prepared', value: status.counts.send_ready, hint: 'Tracked toward pilot readiness' }
         ]}
       />
     </Shell>

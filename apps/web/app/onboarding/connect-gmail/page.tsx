@@ -10,44 +10,44 @@ export default async function ConnectGmailPage() {
 
   return (
     <Shell
-      title="Connect Gmail"
-      eyebrow="Mailbox onboarding"
-      description="This starts Google OAuth for the signed-in client onboarding session and binds the mailbox to that exact client record."
+      title="Inbox setup"
+      eyebrow="Pilot onboarding"
+      description="If inbox access is needed for your pilot, connect it here so setup and reply handling can move forward."
       aside={
         <>
-          <Panel title="Security note" tone="warning">
+          <Panel title="Secure connection" tone="warning">
             <p>
-              The browser never receives the global API key. This button posts to a frontend route,
-              which calls the backend server-side with the client-scoped OAuth start request.
+              If inbox access is needed, it is connected securely through Google. We never
+              ask for your password.
             </p>
           </Panel>
           <Panel title="What to expect">
             <dl className="detail-list">
               <div>
-                <dt>Google OAuth</dt>
-                <dd>You will be redirected to Google to approve Gmail access for the connected inbox.</dd>
+                <dt>Google authorization</dt>
+                <dd>You will be redirected to Google to approve access for the connected inbox.</dd>
               </div>
               <div>
-                <dt>Client ownership</dt>
-                <dd>The signed OAuth state returns the mailbox to the correct client instead of creating an orphan record.</dd>
+                <dt>Inbox status</dt>
+                <dd>Once connected, you will see the inbox appear here along with its health and sync status.</dd>
               </div>
               <div>
-                <dt>Current scope</dt>
-                <dd>This step connects the inbox only. It does not create campaigns or start sending.</dd>
+                <dt>Next stage</dt>
+                <dd>After connection, we can finalize readiness and move into pilot preparation.</dd>
               </div>
             </dl>
           </Panel>
         </>
       }
     >
-      <Panel title="Start Gmail OAuth">
+      <Panel title="Start inbox connection">
         <form action="/api/onboarding/connect-gmail" method="post" className="button-row">
           <button className="primary-button" type="submit">
-            Connect Gmail
+            Connect Google inbox
           </button>
         </form>
       </Panel>
-      <Panel title="Existing mailbox status">
+      <Panel title="Existing inbox status">
         <DataList
           rows={status.mailboxes.map((mailbox) => ({
             label: mailbox.email,
@@ -57,7 +57,7 @@ export default async function ConnectGmailPage() {
               </span>
             )
           }))}
-          emptyMessage="No mailbox connected yet."
+          emptyMessage="No inbox connected yet."
         />
       </Panel>
     </Shell>

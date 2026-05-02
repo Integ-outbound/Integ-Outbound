@@ -1,149 +1,187 @@
 import Link from 'next/link';
 
-import {
-  CTASection,
-  FAQItem,
-  FeatureCard,
-  Hero,
-  MarketingPage,
-  PricingCard,
-  Section
-} from '@/components/marketing';
+import { CTASection, FAQItem, FeatureCard, Hero, MarketingPage, PricingCard, Section } from '@/components/marketing';
 
 export default function HomePage() {
   return (
     <MarketingPage>
       <Hero
         eyebrow="Integ outbound"
-        title="AI-assisted outbound infrastructure for agencies that want more qualified sales conversations without hiring SDRs."
-        description="Integ is an AI-powered outbound operating system plus managed execution. Software speed. Human judgment. Agency outcomes. We help agencies start more qualified sales conversations without hiring, training, and managing an outbound team from scratch."
+        title="More clients for agencies through better outbound."
+        description="We help agencies find the right prospects, start better conversations, and turn outbound into a repeatable client acquisition channel."
         primaryHref="/signup"
         primaryLabel="Start pilot"
         secondaryHref="/what-we-do"
         secondaryLabel="See how it works"
         metrics={[
           {
-            title: 'Cheaper than hiring a team',
-            body: 'Start with a focused outbound pilot before committing to SDR headcount, training, and management.'
+            title: 'More qualified conversations',
+            body: 'We focus on reaching the right people with messages that are specific enough to get real replies.'
           },
           {
-            title: 'Human-reviewed execution',
-            body: 'AI speeds up the work, but judgment, reply quality, and sensitive decisions stay reviewed by humans.'
+            title: 'Done-for-you execution',
+            body: 'We help with targeting, prospect sourcing, outreach, follow-up, reply handling, and campaign improvement.'
           },
           {
             title: 'Built for agencies',
-            body: 'Designed for founder-led teams that want more pipeline without building a full outbound department.'
+            body: 'Designed for agencies that want more pipeline without hiring SDRs or relying only on referrals.'
           },
           {
-            title: 'Controlled path to pipeline',
-            body: 'The goal is more qualified sales conversations, not more software to manage or risky launch controls.'
+            title: 'Start with a pilot',
+            body: 'We test one focused segment first, learn from the market, and scale only when the signal is real.'
           }
         ]}
       />
 
       <Section
-        eyebrow="Problem"
-        title="Outbound is easy to start badly and expensive to run well."
-        description="Agencies and small sales teams usually hit the same wall: fragmented research, risky sending setups, weak reply handling, and too much manual work for every campaign wave."
+        eyebrow="The problem"
+        title="Referrals are not a growth strategy."
+        description="Most agencies know they need more pipeline, but outbound usually turns into a messy mix of bad lists, generic messages, missed follow-ups, and inconsistent execution."
       >
         <div className="feature-grid">
           <FeatureCard
-            title="Tool sprawl slows execution"
-            body="Lists, verification, messaging, sending, inbox management, and reporting often live in disconnected systems."
+            title="Pipeline is inconsistent"
+            body="Some months are busy. Some months are dry. Referrals are useful, but they are not predictable enough to build around."
           />
           <FeatureCard
-            title="Bad automation burns trust"
-            body="If follow-ups keep running after someone replies, or if generic copy hits the wrong inbox, credibility disappears fast."
+            title="Outbound feels painful"
+            body="Building lists, finding contacts, writing messages, following up, and tracking replies takes time most agency founders do not have."
           />
           <FeatureCard
-            title="Hiring SDRs is not always the right first move"
-            body="Many agencies need a controlled pilot before building a full outbound team or promising outbound as a bigger service line."
+            title="Most lead lists are weak"
+            body="Generic databases create generic outreach. Generic outreach gets ignored."
           />
           <FeatureCard
-            title="Operators still need visibility"
-            body="Even with AI assistance, agencies need human review, reply visibility, and a clean handoff when intent is real."
+            title="Replies get wasted"
+            body="Interested prospects need fast, thoughtful handling. A slow or sloppy reply process kills opportunities."
           />
         </div>
-      </Section>
-
-      <Section
-        eyebrow="Why Integ"
-        title="The work of an outbound team, without hiring one."
-        description="Hiring SDRs is expensive. Training them takes time. Managing lead lists, outreach, follow-up, and replies creates more operational drag before you even know if the channel works."
-      >
-        <p className="muted">
-          Integ gives agencies a faster path: an AI-powered internal outbound system
-          operated with human review, built to help you start more qualified sales
-          conversations without building a sales team from scratch.
-        </p>
-        <div className="feature-grid">
-          <FeatureCard
-            title="Cheaper than an SDR team"
-            body="A full outbound team means salaries, tools, training, management, and ramp time. Integ starts with a focused pilot so you can test outbound before committing to headcount."
-          />
-          <FeatureCard
-            title="Faster than hiring and training"
-            body="Instead of spending weeks recruiting and onboarding, we move straight into target selection, prospect sourcing, messaging, and campaign execution."
-          />
-          <FeatureCard
-            title="Powered by internal AI systems"
-            body="Our internal tooling helps with research, list building, message creation, reply handling, and campaign organization - the repetitive work that normally slows teams down."
-          />
-          <FeatureCard
-            title="Human judgment where it matters"
-            body="AI speeds up execution, but campaign judgment, reply quality, and sensitive decisions stay human-reviewed."
-          />
-          <FeatureCard
-            title="Built for agency economics"
-            body="Agencies need pipeline without bloated sales overhead. Integ is designed to give founder-led teams a leaner way to test and run outbound."
-          />
-          <FeatureCard
-            title="Outcome-first execution"
-            body="The goal is not more software to manage. The goal is more qualified conversations with prospects who can become clients."
-          />
-        </div>
-        <div className="product-highlight">
-          <p className="section-kicker">Why agencies choose this model</p>
-          <h3>Start with a pilot. Prove the channel. Scale what works.</h3>
-          <p className="muted">
-            Integ sits between software and service: an AI-powered outbound operating
-            system plus managed execution.
-          </p>
-          <div className="button-row">
-            <Link className="primary-button" href="/signup">
-              Start pilot
-            </Link>
-          </div>
+        <div className="note-card">
+          <strong>Integ turns this into a focused outbound process built around conversations, not busywork.</strong>
         </div>
       </Section>
 
       <Section
         eyebrow="What Integ does"
-        title="Integ gives agencies an outbound operating layer with managed execution."
-        description="The aim is not to sell a shiny dashboard first. The aim is to help agencies run controlled outbound pilots with better infrastructure, better process discipline, and clearer reply handling."
+        title="We build and run outbound campaigns for agencies."
+        description="Integ helps agencies turn a target market into a live outbound campaign: the account list, the contacts, the messaging, the sending, the follow-up, and the reply handling."
+      >
+        <div className="feature-grid">
+          <FeatureCard
+            title="Pick the right market"
+            body="We help define one clear target segment so the campaign is focused from day one."
+          />
+          <FeatureCard
+            title="Build the prospect list"
+            body="We source companies that actually fit the campaign instead of dumping thousands of random leads into a sequence."
+          />
+          <FeatureCard
+            title="Find decision-makers"
+            body="We look for founders, owners, CEOs, growth leads, marketing leaders, or the people most likely to care."
+          />
+          <FeatureCard
+            title="Write sharper outreach"
+            body="We create messages based on the prospect, the agency offer, and the campaign angle."
+          />
+          <FeatureCard
+            title="Launch controlled outreach"
+            body="We send in a controlled way, review the campaign, and avoid reckless volume."
+          />
+          <FeatureCard
+            title="Handle replies"
+            body="We track interested replies, questions, objections, and next steps so real opportunities do not get lost."
+          />
+          <FeatureCard
+            title="Improve the next wave"
+            body="We use actual market response to improve targeting, messaging, and follow-up."
+          />
+        </div>
+        <div className="product-highlight">
+          <p className="section-kicker">The engine behind the service</p>
+          <h3>Managed outcome first. Systems underneath.</h3>
+          <p className="muted">
+            Behind the scenes, Integ uses AI-assisted research, drafting, inbox-based
+            outreach, reply tracking, and human review to keep campaigns organized and
+            controlled. The buyer does not need to manage the machinery - they get the
+            outcome.
+          </p>
+        </div>
+      </Section>
+
+      <Section
+        eyebrow="Who it is for"
+        title="For agencies that can deliver, but need more opportunities."
+        description="Integ works best for agencies with a real offer, proof of delivery, and a desire to create more client conversations."
+      >
+        <div className="feature-grid">
+          <FeatureCard
+            title="Paid media agencies"
+            body="PPC, Google Ads, Meta Ads, TikTok Ads, and performance agencies that want more sales conversations with ecommerce, SaaS, local service, or B2B prospects."
+          />
+          <FeatureCard
+            title="Growth agencies"
+            body="Teams helping clients with acquisition, funnels, conversion, revenue growth, or demand generation."
+          />
+          <FeatureCard
+            title="B2B service agencies"
+            body="Agencies with clear offers and enough deal value to justify outbound."
+          />
+          <FeatureCard
+            title="Founder-led teams"
+            body="Small teams where the founder is still involved in sales and needs a more consistent pipeline."
+          />
+        </div>
+        <div className="split-band">
+          <FeatureCard
+            title="Not for agencies with a weak offer."
+            body="Outbound cannot fix a bad offer, weak delivery, or unclear market. We work best when the agency already knows how to deliver and needs more qualified conversations."
+          />
+          <div className="product-highlight">
+            <p className="section-kicker">Best-fit agencies</p>
+            <h3>Built for founder-led teams that want a repeatable acquisition channel.</h3>
+            <p className="muted">
+              The strongest fit is an agency that wants more clients and qualified sales
+              conversations without hiring SDRs or chasing random cold email tactics.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      <Section
+        eyebrow="Controlled pilot"
+        title="Start with one campaign. Prove the signal."
+        description="We do not start with a giant retainer or massive blast. We start with one focused outbound pilot, test the market, and see whether the campaign creates real conversations."
       >
         <div className="split-band">
           <FeatureCard
-            title="Software plus operator workflow"
-            body="We use software to coordinate targeting, research, messaging, review state, reply handling, and internal safety checks while keeping sensitive actions server-side."
+            title="What the pilot includes"
+            body="A pilot campaign is designed to test whether outbound can become a reliable source of qualified sales opportunities."
             bullets={[
-              'target-market intake and campaign setup',
-              'account and contact discovery support',
-              'message drafting, reply sync, and intent classification',
-              'operator visibility into review state and safety'
+              'One target segment',
+              'Prospect list building',
+              'Contact research where possible',
+              'Outreach strategy',
+              'Message writing',
+              'Controlled sending',
+              'Follow-up handling',
+              'Reply tracking',
+              'Weekly reporting',
+              'Next-step recommendations'
             ]}
           />
           <div className="product-highlight">
-            <p className="section-kicker">Software speed. Human judgment. Agency outcomes.</p>
-            <h3>Not just software. Not just an agency.</h3>
+            <p className="section-kicker">Pilot campaign</p>
+            <h3>Apply for pilot</h3>
             <p className="muted">
-              Integ is an AI-powered outbound operating system plus managed execution.
-              Clients do not get public campaign launch controls, and the work remains
-              human-reviewed where judgment matters.
+              Opening limited early pilot slots for agencies that want more sales
+              opportunities.
             </p>
             <div className="button-row">
-              <Link className="secondary-button" href="/products">
-                Explore offerings
+              <Link className="primary-button" href="/signup">
+                Apply for pilot
+              </Link>
+              <Link className="secondary-button" href="/contact">
+                Contact
               </Link>
             </div>
           </div>
@@ -151,207 +189,79 @@ export default function HomePage() {
       </Section>
 
       <Section
-        eyebrow="The system"
-        title="A modern outbound workflow built to become more autonomous over time."
-        description="The endpoint is a system that can move from target market to qualified opportunity with less manual coordination at every step. Today, Integ combines AI-powered tooling with human review. As the system improves, more of the workflow becomes automated while quality controls stay in place."
-      >
-        <div className="product-highlight">
-          <p className="section-kicker">From target market to client opportunity</p>
-          <p className="muted">
-            Designed to reduce the work of building an outbound function while keeping
-            quality controls in place.
-          </p>
-        </div>
-        <div className="feature-grid">
-          <FeatureCard
-            title="1. Target market input"
-            body="The agency defines who they want as clients: industry, geography, company type, buyer persona, offer, and exclusions."
-          />
-          <FeatureCard
-            title="2. Account discovery"
-            body="The system helps identify companies that match the target market and filters out weak fits."
-          />
-          <FeatureCard
-            title="3. Contact discovery"
-            body="Relevant decision-makers are found and prioritized based on role, company fit, and outreach relevance."
-          />
-          <FeatureCard
-            title="4. Campaign strategy"
-            body="The system turns the agency offer and target market into an outreach angle that makes sense for the prospect."
-          />
-          <FeatureCard
-            title="5. Message generation"
-            body="AI drafts outreach based on the prospect, market, and offer. Humans review for quality before launch."
-          />
-          <FeatureCard
-            title="6. Controlled sending"
-            body="Campaigns are sent carefully with safety checks, limits, and review gates."
-          />
-          <FeatureCard
-            title="7. Reply detection"
-            body="Replies are captured and organized so interested prospects are not missed."
-          />
-          <FeatureCard
-            title="8. Intent classification"
-            body="The system identifies positive replies, questions, objections, referrals, not-interested replies, and out-of-office responses."
-          />
-          <FeatureCard
-            title="9. Follow-up control"
-            body="Follow-ups adapt based on prospect behavior. When someone replies, irrelevant follow-ups stop."
-          />
-          <FeatureCard
-            title="10. Human handoff"
-            body="Interested conversations are handed to the agency or operator for next steps, call booking, and sales follow-up."
-          />
-          <FeatureCard
-            title="11. Learning loop"
-            body="Campaign data improves the next wave: better targeting, stronger messages, better qualification, and sharper execution."
-          />
-        </div>
-        <div className="note-grid">
-          <div className="note-card">
-            <strong>Current model: AI-assisted and human-reviewed.</strong>
-            <p>
-              Integ is not presented as fully autonomous today. Human review still
-              matters for quality, strategy, and sensitive decisions.
-            </p>
-          </div>
-          <div className="note-card">
-            <strong>Product direction: increasingly autonomous outbound operations with safety controls.</strong>
-            <p>
-              The system is built toward autonomous outbound operations while keeping
-              review gates and controlled execution in place.
-            </p>
-          </div>
-        </div>
-      </Section>
-
-      <Section
-        eyebrow="Who it is for"
-        title="Built for agencies that need controlled outbound execution."
-        description="The strongest fit today is an agency, consultant, or founder-led team that wants outbound capacity and infrastructure without pretending the process is already fully autonomous."
-      >
-        <div className="feature-grid">
-          <FeatureCard title="Outbound agencies" body="Agencies that want fulfillment support, execution infrastructure, or a white-label operating layer for clients." />
-          <FeatureCard title="Marketing partners adding outbound" body="Teams that already own strategy or growth work and want a cleaner path into outbound pilots." />
-          <FeatureCard title="Founder-led service businesses" body="Small teams that need qualified sales conversations but are not ready to build a traditional SDR function." />
-          <FeatureCard title="Early backers and collaborators" body="Stakeholders who need to see a credible, controlled workflow instead of inflated automation claims." />
-        </div>
-      </Section>
-
-      <Section
-        eyebrow="Products"
-        title="Four clear entry points depending on the stage of the engagement."
-        description="The same infrastructure can support a pilot, managed execution, or deeper agency-facing operations support."
-      >
-        <div className="feature-grid">
-          <FeatureCard
-            title="Outbound Pilot"
-            body="A 30-day pilot to prove whether a segment, offer, and inbox setup can produce real conversations before hiring SDRs or building an internal team."
-          />
-          <FeatureCard
-            title="Managed Client Acquisition"
-            body="Ongoing campaign waves with reply handling, reporting, and iterative messaging improvement for teams that need a leaner alternative to building an internal outbound department too early."
-          />
-          <FeatureCard
-            title="White-label Outbound Support"
-            body="A deeper operational layer for agencies that want the capability of an outbound team without carrying the entire operational load internally."
-          />
-          <FeatureCard title="Client Onboarding + Gmail Connection" body="A safer onboarding path for collecting client profile data, connecting the sending inbox through Google OAuth, and keeping access controlled." />
-        </div>
-        <div className="button-row">
-          <Link className="secondary-button" href="/products">
-            See product details
-          </Link>
-        </div>
-      </Section>
-
-      <Section
         eyebrow="Pricing preview"
-        title="Indicative ranges for early outbound work."
-        description="Pricing depends on market, data requirements, send volume, inbox setup, and scope. These ranges are meant to help prospects qualify the conversation, not lock in a contract."
+        title="Pilot-first pricing for agency growth."
+        description="Start small, prove the segment, then expand if the campaign creates real sales conversations."
       >
         <div className="pricing-grid">
           <PricingCard
             title="Outbound Pilot"
             price="$750-$1,500"
-            summary="30-day pilot for one ICP segment with controlled execution."
+            summary="30-day campaign test"
             items={[
-              '1 ICP segment',
-              'target account sourcing',
-              'verified outreach list',
-              'personalized messaging',
+              'one target segment',
+              'prospect list building',
+              'contact research where possible',
+              'outreach messaging',
               'controlled sending',
-              'reply handling and weekly report'
+              'follow-up handling',
+              'reply tracking',
+              'weekly report'
             ]}
             ctaHref="/pricing"
-            ctaLabel="View pricing"
+            ctaLabel="Start pilot"
           />
           <PricingCard
             title="Managed Client Acquisition"
             price="$1,500-$3,000/mo"
-            summary="Ongoing campaign waves with optimization and reporting."
+            summary="Ongoing outbound execution"
             items={[
-              'ongoing sourcing and verification',
-              'controlled sending',
-              'reply classification',
+              'monthly campaign waves',
+              'new prospect segments',
+              'contact sourcing',
+              'message testing',
               'follow-up management',
-              'reporting',
-              'optimization'
+              'reply handling',
+              'reporting and optimization'
             ]}
             featured
             ctaHref="/pricing"
-            ctaLabel="See managed plan"
+            ctaLabel="Discuss managed plan"
           />
           <PricingCard
-            title="Custom / White-label Ops"
+            title="White-label / Custom Ops"
             price="Custom"
-            summary="For agencies needing infrastructure support, fulfillment support, or a white-label motion."
+            summary="For agencies that want outbound support for themselves or their clients"
             items={[
-              'agency-specific workflows',
-              'shared operating processes',
-              'custom scope and reporting',
-              'delivery tailored to the client mix'
+              'custom campaign workflow',
+              'prospect sourcing support',
+              'outreach operations',
+              'reporting',
+              'process support'
             ]}
             ctaHref="/pricing"
-            ctaLabel="See custom scope"
+            ctaLabel="Contact us"
           />
         </div>
       </Section>
 
       <Section
         eyebrow="FAQ preview"
-        title="The questions serious prospects usually ask first."
-        description="The answers below stay honest about what is already in place and what still requires human review."
+        title="A few practical questions serious buyers ask early."
+        description="The answers stay focused on outcomes, controlled execution, and honest expectations."
       >
         <div className="faq-list">
           <FAQItem
-            question="Is this a SaaS tool or a managed service?"
-            answer="Today it is better described as an AI-powered outbound operating system plus managed execution. Integ provides infrastructure and workflow support, but it is not positioned as a fully self-serve outbound dashboard."
+            question="What does Integ actually do?"
+            answer="We help agencies run outbound campaigns that create more qualified sales conversations. That includes targeting, prospect list building, contact research, outreach messaging, follow-up, reply handling, and reporting."
           />
           <FAQItem
-            question="Why use Integ instead of hiring SDRs?"
-            answer="Hiring SDRs can work, but it is expensive and slow before the channel is proven. Integ lets agencies test outbound with a managed AI-assisted workflow first, without taking on the cost, training, and management burden of a full team."
+            question="Is this software or a service?"
+            answer="It is a managed service powered by internal software. Clients get the campaign execution and outcome-focused workflow, not another tool they need to manage."
           />
           <FAQItem
-            question="Is Integ cheaper than building an internal outbound team?"
-            answer="Yes, for the initial stage. A full internal team can require salaries, tools, data, training, and management. Integ starts with a focused pilot and scales only when there is signal."
-          />
-          <FAQItem
-            question="Does AI do all the work?"
-            answer="No. AI helps with research, drafting, organization, and classification. Human review still matters for quality, strategy, and sensitive decisions. The product direction is more autonomous over time, but current execution is intentionally controlled."
-          />
-          <FAQItem
-            question="What is the long-term vision?"
-            answer="The long-term vision is an outbound operating system that can take a client's target market and manage more of the workflow automatically: sourcing, outreach, replies, follow-up, learning, and handoff. The current model is AI-assisted and human-reviewed so quality stays high while the system improves."
-          />
-          <FAQItem
-            question="Do clients give Gmail passwords?"
-            answer="No. Clients connect Gmail through Google OAuth. Passwords are not collected by the frontend."
-          />
-          <FAQItem
-            question="What happens if replies come in?"
-            answer="Replies are synced, classified, and used to stop further follow-ups. Interested replies are handed to humans for the next step."
+            question="Do you guarantee new clients?"
+            answer="No. We do not make fake guarantees. We build and run campaigns designed to create qualified conversations. Whether those conversations turn into clients depends on the offer, pricing, market, and sales follow-up."
           />
         </div>
         <div className="button-row">
@@ -362,12 +272,12 @@ export default function HomePage() {
       </Section>
 
       <CTASection
-        title="Start with a controlled pilot, not a vague outbound promise."
-        body="If you want to test a market, prove a service offer, or add outbound capability without hiring a full SDR team first, the right next step is a structured onboarding and pilot conversation."
+        title="Start with one segment. Prove the signal. Scale what works."
+        body="If you want to turn outbound into a more predictable client acquisition channel, the best next step is a focused pilot campaign."
         primaryHref="/signup"
         primaryLabel="Start pilot"
-        secondaryHref="/about"
-        secondaryLabel="Learn more about Integ"
+        secondaryHref="/contact"
+        secondaryLabel="Contact"
       />
     </MarketingPage>
   );
