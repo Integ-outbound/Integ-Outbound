@@ -69,6 +69,22 @@ CREATE TABLE IF NOT EXISTS clients (
   updated_at timestamptz NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS pilot_requests (
+  id uuid PRIMARY KEY,
+  contact_name text NOT NULL,
+  contact_email text NOT NULL,
+  company_name text NOT NULL,
+  website text NOT NULL,
+  offer text NOT NULL,
+  desired_client_type text NOT NULL,
+  notes text,
+  status text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'reviewed', 'archived')),
+  reviewed_by text,
+  reviewed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
 INSERT INTO clients (id, slug, name, is_active)
 VALUES (
   '00000000-0000-0000-0000-000000000001',
@@ -589,6 +605,7 @@ CREATE INDEX IF NOT EXISTS idx_contacts_opted_out ON contacts(opted_out);
 CREATE INDEX IF NOT EXISTS idx_contacts_bounced ON contacts(bounced);
 CREATE INDEX IF NOT EXISTS idx_contacts_last_seen_at ON contacts(last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_campaigns_client_id ON campaigns(client_id);
+CREATE INDEX IF NOT EXISTS idx_pilot_requests_status_created_at ON pilot_requests(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_leads_client_id_status ON leads(client_id, status);
 CREATE INDEX IF NOT EXISTS idx_leads_campaign_id ON leads(campaign_id);
@@ -647,6 +664,13 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'clients_set_updated_at') THEN
     CREATE TRIGGER clients_set_updated_at
     BEFORE UPDATE ON clients
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'pilot_requests_set_updated_at') THEN
+    CREATE TRIGGER pilot_requests_set_updated_at
+    BEFORE UPDATE ON pilot_requests
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
   END IF;

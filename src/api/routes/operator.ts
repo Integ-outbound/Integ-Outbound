@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { asyncHandler, parseWithSchema } from '../utils';
 import {
   getOperatorClientStatuses,
+  getOperatorPilotRequests,
   getOperatorReviewQueues,
   getOperatorSafety,
   getOperatorStatus
@@ -48,6 +49,14 @@ router.get(
   asyncHandler(async (_req, res) => {
     const clients = await getOperatorClientStatuses();
     res.status(200).json(clients);
+  })
+);
+
+router.get(
+  '/operator/pilot-requests',
+  asyncHandler(async (_req, res) => {
+    const requests = await getOperatorPilotRequests();
+    res.status(200).json(requests);
   })
 );
 

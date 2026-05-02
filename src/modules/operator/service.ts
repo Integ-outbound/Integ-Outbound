@@ -2,6 +2,7 @@ import { query } from '../../db/client';
 import { ensureClientExists, getClientOnboardingStatus, listClients } from '../clients/service';
 import { appendClientScope } from '../clients/scope';
 import { listMailboxes } from '../mailboxes/operations';
+import { countPilotRequestsByStatus, listPilotRequests } from '../pilot-requests/service';
 import { getUnhandledReplies } from '../replies/service';
 import { getReviewQueue, getReviewStatsForClient } from '../review/service';
 import { getDailyStatsForClient } from '../sending/service';
@@ -14,6 +15,7 @@ export async function getOperatorStatus(clientId?: string): Promise<{
   unhandledReplies: number;
   connectedMailboxes: number;
   unhealthyMailboxes: number;
+  newPilotRequests: number;
   sendsToday: number;
   bouncesToday: number;
   reviewStats: Awaited<ReturnType<typeof getReviewStatsForClient>>;
@@ -27,7 +29,7 @@ export async function getOperatorStatus(clientId?: string): Promise<{
   appendClientScope(conditions, params, 'client_id', clientId);
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const [campaignsResult, leadsResult, replyCountResult, mailboxes, sendingStats, reviewStats] = await Promise.all([
+  const [campaignsResult, leadsResult, replyCountResult, mailboxes, sendingStats, reviewStats, newPilotRequests] = await Promise.all([
     query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM campaigns ${whereClause ? `${whereClause} AND status = 'active'` : "WHERE status = 'active'"}`,
       params
@@ -42,7 +44,8 @@ export async function getOperatorStatus(clientId?: string): Promise<{
     ),
     listMailboxes(clientId),
     getDailyStatsForClient(clientId),
-    getReviewStatsForClient(clientId)
+    getReviewStatsForClient(clientId),
+    countPilotRequestsByStatus('new')
   ]);
 
   const leadsByStatus = Object.fromEntries(
@@ -57,6 +60,7 @@ export async function getOperatorStatus(clientId?: string): Promise<{
     unhandledReplies: Number(replyCountResult.rows[0]?.count ?? 0),
     connectedMailboxes: mailboxes.filter((mailbox) => mailbox.status === 'connected').length,
     unhealthyMailboxes: mailboxes.filter((mailbox) => mailbox.status !== 'connected').length,
+    newPilotRequests,
     sendsToday: sendingStats.sendsToday,
     bouncesToday: sendingStats.bouncesToday,
     reviewStats
@@ -113,6 +117,13 @@ export async function getOperatorClientStatuses(): Promise<{
   );
 
   return { clients: statuses };
+}
+
+export async function getOperatorPilotRequests(): Promise<{
+  requests: Awaited<ReturnType<typeof listPilotRequests>>;
+}> {
+  const requests = await listPilotRequests({ limit: 100 });
+  return { requests };
 }
 
 export async function getOperatorSafety(clientId?: string): Promise<{

@@ -21,6 +21,9 @@ export default async function OperatorPage() {
               <Link className="secondary-button" href="/operator/clients">
                 Client onboarding
               </Link>
+              <Link className="secondary-button" href="/operator/pilot-requests">
+                Pilot requests
+              </Link>
               <Link className="secondary-button" href="/operator/review">
                 Review queues
               </Link>
@@ -59,6 +62,7 @@ export default async function OperatorPage() {
           { label: 'Pending drafts', value: status.pendingLeadReview },
           { label: 'Unhandled replies', value: status.unhandledReplies },
           { label: 'Send-ready', value: status.sendReady },
+          { label: 'New pilot requests', value: status.newPilotRequests },
           { label: 'Connected mailboxes', value: status.connectedMailboxes },
           { label: 'Unhealthy mailboxes', value: status.unhealthyMailboxes },
           { label: 'Failed send attempts', value: safety.failed_send_attempts },

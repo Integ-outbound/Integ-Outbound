@@ -12,6 +12,22 @@ export interface Client {
   updated_at: string;
 }
 
+export interface PilotRequest {
+  id: string;
+  contact_name: string;
+  contact_email: string;
+  company_name: string;
+  website: string;
+  offer: string;
+  desired_client_type: string;
+  notes: string | null;
+  status: 'new' | 'reviewed' | 'archived';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Company {
   id: string;
   domain: string;

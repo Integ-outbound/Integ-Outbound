@@ -6,6 +6,7 @@ import type {
   ClientOnboardingStatus,
   MailboxStatusView,
   OperatorClientStatuses,
+  OperatorPilotRequests,
   OperatorReviewQueues,
   OperatorSafety,
   OperatorStatus
@@ -40,4 +41,8 @@ export async function getOperatorSafety(clientId?: string): Promise<OperatorSafe
 
 export async function getOperatorClientStatuses(): Promise<OperatorClientStatuses> {
   return fetchBackendJson<OperatorClientStatuses>('/api/v1/operator/clients');
+}
+
+export async function getOperatorPilotRequests(): Promise<OperatorPilotRequests> {
+  return fetchBackendJson<OperatorPilotRequests>('/api/v1/operator/pilot-requests');
 }
