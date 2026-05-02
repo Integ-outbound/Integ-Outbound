@@ -9,7 +9,7 @@ services:
     name: integ-api
     env: node
     plan: starter
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci --include=dev && npm run build:api
     startCommand: npm start
     healthCheckPath: /api/v1/ready
     envVars:
@@ -31,6 +31,8 @@ services:
         sync: false
       - key: GOOGLE_GMAIL_SCOPES
         sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false
       - key: MAILBOX_TOKEN_ENCRYPTION_KEY
         sync: false
       - key: INTERNAL_API_KEY
@@ -44,8 +46,8 @@ services:
     name: integ-worker
     env: node
     plan: starter
-    buildCommand: npm install && npm run build
-    startCommand: npm run worker
+    buildCommand: npm ci --include=dev && npm run build:api
+    startCommand: npm run worker:prod
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -64,6 +66,8 @@ services:
       - key: GOOGLE_REDIRECT_URI
         sync: false
       - key: GOOGLE_GMAIL_SCOPES
+        sync: false
+      - key: FRONTEND_BASE_URL
         sync: false
       - key: MAILBOX_TOKEN_ENCRYPTION_KEY
         sync: false

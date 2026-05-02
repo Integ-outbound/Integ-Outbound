@@ -477,14 +477,14 @@ The repository includes `render.yaml` for a Render deployment with:
 
 Web service:
 
-- build: `npm install && npm run build`
+- build: `npm ci --include=dev && npm run build:api`
 - start: `npm start`
 - env: `START_WORKER=false`
 
 Worker service:
 
-- build: `npm install && npm run build`
-- start: `npm run worker`
+- build: `npm ci --include=dev && npm run build:api`
+- start: `npm run worker:prod`
 
 ## Operations And Runbooks
 

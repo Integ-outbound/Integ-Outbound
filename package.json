@@ -13,6 +13,7 @@
     "dev:api": "tsx src/index.ts",
     "dev:web": "npm run dev --workspace apps/web",
     "worker": "tsx src/queue/worker.ts",
+    "worker:prod": "node dist/queue/worker.js",
     "build:api": "tsc -p tsconfig.json",
     "build:web": "npm run build --workspace apps/web",
     "build": "npm run build:api && npm run build:web",

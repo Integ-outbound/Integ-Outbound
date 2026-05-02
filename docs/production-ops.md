@@ -8,13 +8,15 @@ Use the included `render.yaml` blueprint:
 - web service for the API
 - worker service for pg-boss
 
+The blueprint uses `npm ci --include=dev` so Render installs exactly the lockfile-pinned dependency tree while still keeping TypeScript build tooling available during the build step.
+
 ## Startup Model
 
 - Web service:
   - `START_WORKER=false`
   - serves HTTP only
 - Worker service:
-  - `npm run worker`
+  - `npm run worker:prod`
   - processes pg-boss jobs
 
 ## Required Production Env Vars
@@ -29,6 +31,7 @@ Use the included `render.yaml` blueprint:
 - `GOOGLE_GMAIL_SCOPES`
 - `MAILBOX_TOKEN_ENCRYPTION_KEY`
 - `INTERNAL_API_KEY`
+- `FRONTEND_BASE_URL`
 - `NODE_ENV`
 - `START_WORKER`
 
@@ -88,6 +91,7 @@ Recommended minimum:
 4. Confirm worker logs show successful pg-boss startup.
 5. Confirm `DATABASE_URL` is present and points to the expected database.
 6. Confirm `INTERNAL_API_KEY` is set on both web and worker services.
-7. If AI routes fail, confirm Anthropic billing and key validity.
-8. If verification fails, confirm `VERIFICATION_PROVIDER` and `VERIFICATION_API_KEY`.
-9. If queue jobs stall, check worker logs and `system_events` for `job.failed`.
+7. Confirm `FRONTEND_BASE_URL` matches the deployed frontend domain when using onboarding or Gmail OAuth return flows.
+8. If AI routes fail, confirm Anthropic billing and key validity.
+9. If verification fails, confirm `VERIFICATION_PROVIDER` and `VERIFICATION_API_KEY`.
+10. If queue jobs stall, check worker logs and `system_events` for `job.failed`.
