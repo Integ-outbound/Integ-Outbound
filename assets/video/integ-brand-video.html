@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1080, initial-scale=1" />
+    <title>Integ brand video</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #111827;
+        --panel-lift: #151f31;
+        --violet: #6366f1;
+        --blue: #3b82f6;
+        --text: #f7f8fb;
+        --muted: #94a3b8;
+        --line: rgba(148, 163, 184, 0.22);
+        --strong-line: rgba(148, 163, 184, 0.34);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1080px;
+        height: 1920px;
+        margin: 0;
+        overflow: hidden;
+        background: var(--bg);
+      }
+
+      body {
+        font-family: "Space Grotesk", "Segoe UI", Arial, sans-serif;
+        color: var(--text);
+      }
+
+      .stage {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 80% 88%, rgba(99, 102, 241, 0.2), transparent 31%),
+          radial-gradient(circle at 96% 78%, rgba(59, 130, 246, 0.16), transparent 28%),
+          linear-gradient(180deg, #0b1220 0%, #0d1424 100%);
+      }
+
+      .stage::before,
+      .stage::after {
+        content: "";
+        position: absolute;
+        border-radius: 999px;
+        filter: blur(72px);
+        pointer-events: none;
+      }
+
+      .stage::before {
+        width: 520px;
+        height: 520px;
+        right: -170px;
+        bottom: -80px;
+        background: rgba(99, 102, 241, 0.2);
+      }
+
+      .stage::after {
+        width: 460px;
+        height: 460px;
+        right: 60px;
+        bottom: 28px;
+        background: rgba(59, 130, 246, 0.14);
+      }
+
+      .brand-foot {
+        position: absolute;
+        left: 112px;
+        bottom: 128px;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        opacity: 0.72;
+        animation: footerPresence 15s linear both;
+      }
+
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+        border: 1px solid var(--strong-line);
+        background: linear-gradient(180deg, rgba(99, 102, 241, 0.26), rgba(99, 102, 241, 0.08));
+        color: var(--text);
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 20px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+      }
+
+      .brand-foot span:last-child {
+        color: var(--muted);
+        font-size: 31px;
+        font-weight: 500;
+      }
+
+      .float-cards {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        animation: cardsMaster 15s linear both;
+      }
+
+      .ui-card {
+        position: absolute;
+        width: 300px;
+        height: 190px;
+        border: 1px solid var(--line);
+        border-radius: 34px;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+          rgba(17, 24, 39, 0.78);
+        box-shadow: 0 28px 90px rgba(2, 6, 23, 0.28);
+        animation: drift 15s ease-in-out both;
+      }
+
+      .ui-card::before,
+      .ui-card::after {
+        content: "";
+        position: absolute;
+        left: 34px;
+        right: 34px;
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.16);
+      }
+
+      .ui-card::before {
+        top: 44px;
+        width: 48%;
+      }
+
+      .ui-card::after {
+        top: 82px;
+        width: 70%;
+      }
+
+      .card-a {
+        left: 108px;
+        top: 382px;
+        transform: rotate(-5deg);
+      }
+
+      .card-b {
+        right: 92px;
+        top: 506px;
+        width: 344px;
+        height: 216px;
+        animation-delay: -1.2s;
+      }
+
+      .card-c {
+        left: 186px;
+        top: 958px;
+        width: 356px;
+        height: 220px;
+        animation-delay: -2.1s;
+      }
+
+      .card-d {
+        right: 118px;
+        top: 1138px;
+        animation-delay: -3s;
+      }
+
+      .copy {
+        position: absolute;
+        left: 92px;
+        right: 92px;
+        top: 720px;
+        z-index: 10;
+        text-align: left;
+      }
+
+      .headline {
+        position: absolute;
+        inset: 0;
+        margin: 0;
+        font-size: 94px;
+        line-height: 0.98;
+        letter-spacing: -0.04em;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .headline.scene-one {
+        animation: sceneOne 15s linear both;
+      }
+
+      .headline.scene-two {
+        animation: sceneTwo 15s linear both;
+      }
+
+      .workflow {
+        position: absolute;
+        left: 96px;
+        right: 96px;
+        top: 606px;
+        z-index: 11;
+        display: grid;
+        gap: 30px;
+        opacity: 0;
+        animation: workflowIn 15s linear both;
+      }
+
+      .kicker {
+        color: var(--violet);
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 26px;
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .workflow-row {
+        display: grid;
+        gap: 18px;
+      }
+
+      .workflow-step {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 128px;
+        padding: 0 34px;
+        border: 1px solid var(--line);
+        border-radius: 30px;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
+          rgba(17, 24, 39, 0.92);
+        color: var(--text);
+        font-size: 44px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        box-shadow: 0 28px 80px rgba(2, 6, 23, 0.22);
+      }
+
+      .workflow-step .arrow {
+        color: var(--blue);
+        font-size: 32px;
+      }
+
+      .brand-scene {
+        position: absolute;
+        inset: 0;
+        z-index: 12;
+        display: grid;
+        place-items: center;
+        padding: 0 92px;
+        text-align: center;
+        opacity: 0;
+        animation: brandScene 15s linear both;
+      }
+
+      .brand-lockup {
+        display: grid;
+        justify-items: center;
+        gap: 42px;
+      }
+
+      .brand-lockup .mark {
+        width: 128px;
+        height: 128px;
+        border-radius: 38px;
+        font-size: 43px;
+      }
+
+      .brand-line {
+        margin: 0;
+        max-width: 860px;
+        color: var(--text);
+        font-size: 72px;
+        line-height: 1.04;
+        letter-spacing: -0.04em;
+        font-weight: 700;
+      }
+
+      .pipeline {
+        position: absolute;
+        inset: 0;
+        z-index: 13;
+        opacity: 0;
+        animation: pipelineScene 15s linear both;
+      }
+
+      .pipeline-track {
+        position: absolute;
+        left: 132px;
+        right: 132px;
+        top: 704px;
+        height: 310px;
+      }
+
+      .pipeline-line {
+        position: absolute;
+        left: 24px;
+        right: 24px;
+        top: 154px;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(99, 102, 241, 0), rgba(99, 102, 241, 0.72), rgba(59, 130, 246, 0));
+      }
+
+      .pipeline-card {
+        position: absolute;
+        top: 72px;
+        width: 176px;
+        height: 170px;
+        border: 1px solid var(--line);
+        border-radius: 30px;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+          rgba(17, 24, 39, 0.96);
+        box-shadow: 0 30px 80px rgba(2, 6, 23, 0.26);
+      }
+
+      .pipeline-card::before,
+      .pipeline-card::after {
+        content: "";
+        position: absolute;
+        left: 28px;
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.18);
+      }
+
+      .pipeline-card::before {
+        top: 48px;
+        width: 86px;
+      }
+
+      .pipeline-card::after {
+        top: 82px;
+        width: 118px;
+      }
+
+      .pipe-a {
+        left: 0;
+        animation: pipeA 15s ease both;
+      }
+
+      .pipe-b {
+        left: 270px;
+        animation: pipeB 15s ease both;
+      }
+
+      .pipe-c {
+        left: 540px;
+        animation: pipeC 15s ease both;
+      }
+
+      .pipe-d {
+        left: 270px;
+        top: 252px;
+        opacity: 0;
+        animation: pipeD 15s ease both;
+      }
+
+      .small-copy {
+        position: absolute;
+        left: 92px;
+        right: 92px;
+        top: 1118px;
+        color: var(--muted);
+        font-size: 50px;
+        line-height: 1.2;
+        text-align: center;
+        font-weight: 500;
+      }
+
+      .final {
+        position: absolute;
+        inset: 0;
+        z-index: 14;
+        display: grid;
+        align-content: center;
+        gap: 42px;
+        padding: 0 92px;
+        opacity: 0;
+        animation: finalScene 15s linear both;
+      }
+
+      .final .mark {
+        width: 76px;
+        height: 76px;
+        border-radius: 24px;
+        font-size: 26px;
+      }
+
+      .final h1 {
+        margin: 0;
+        font-size: 118px;
+        line-height: 0.9;
+        letter-spacing: -0.05em;
+      }
+
+      .final p {
+        margin: 0;
+      }
+
+      .final .sub {
+        color: var(--muted);
+        font-size: 52px;
+        line-height: 1.22;
+        font-weight: 500;
+      }
+
+      .final .dm {
+        color: var(--text);
+        font-size: 72px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        font-weight: 700;
+      }
+
+      .final .url {
+        color: var(--muted);
+        font-size: 34px;
+        font-weight: 500;
+      }
+
+      @keyframes drift {
+        0% {
+          transform: translate3d(0, 0, 0) rotate(-4deg);
+        }
+        18% {
+          transform: translate3d(18px, -22px, 0) rotate(-2deg);
+        }
+        22% {
+          transform: translate3d(-8px, 4px, 0) rotate(1deg);
+        }
+        25% {
+          transform: translate3d(10px, -6px, 0) rotate(-1deg);
+        }
+        34% {
+          transform: translate3d(0, 0, 0) rotate(0deg);
+        }
+        53% {
+          transform: translate3d(0, 0, 0) rotate(0deg);
+        }
+        100% {
+          transform: translate3d(0, 0, 0) rotate(0deg);
+        }
+      }
+
+      @keyframes cardsMaster {
+        0%,
+        18% {
+          opacity: 0.78;
+          filter: blur(0);
+        }
+        20%,
+        29% {
+          opacity: 0.9;
+          filter: blur(0.5px);
+        }
+        36%,
+        52% {
+          opacity: 0.18;
+          filter: blur(1px);
+        }
+        58%,
+        100% {
+          opacity: 0;
+          filter: blur(4px);
+        }
+      }
+
+      @keyframes sceneOne {
+        0% {
+          opacity: 0;
+          transform: translateY(22px);
+        }
+        5%,
+        16% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        20%,
+        100% {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+      }
+
+      @keyframes sceneTwo {
+        0%,
+        19% {
+          opacity: 0;
+          transform: translateY(24px);
+        }
+        24%,
+        31% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        34%,
+        100% {
+          opacity: 0;
+          transform: translateY(-22px);
+        }
+      }
+
+      @keyframes workflowIn {
+        0%,
+        32% {
+          opacity: 0;
+          transform: translateY(44px) scale(0.98);
+        }
+        38%,
+        50% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+        55%,
+        100% {
+          opacity: 0;
+          transform: translateY(-32px) scale(0.99);
+        }
+      }
+
+      @keyframes brandScene {
+        0%,
+        52% {
+          opacity: 0;
+          transform: translateY(34px) scale(0.985);
+        }
+        57%,
+        70% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+        74%,
+        100% {
+          opacity: 0;
+          transform: translateY(-28px) scale(0.99);
+        }
+      }
+
+      @keyframes pipelineScene {
+        0%,
+        72% {
+          opacity: 0;
+          transform: translateY(28px);
+        }
+        76%,
+        86% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        90%,
+        100% {
+          opacity: 0;
+          transform: translateY(-24px);
+        }
+      }
+
+      @keyframes pipeA {
+        0%,
+        72% {
+          transform: translateX(-80px);
+          opacity: 0;
+        }
+        75%,
+        88% {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes pipeB {
+        0%,
+        74% {
+          transform: translateX(-80px);
+          opacity: 0;
+        }
+        78%,
+        88% {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes pipeC {
+        0%,
+        76% {
+          transform: translateX(-80px);
+          opacity: 0;
+        }
+        81%,
+        88% {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes pipeD {
+        0%,
+        79% {
+          transform: translateY(-24px);
+          opacity: 0;
+        }
+        82%,
+        84% {
+          transform: translateY(0);
+          opacity: 0.86;
+        }
+        88%,
+        100% {
+          transform: translateY(24px);
+          opacity: 0;
+        }
+      }
+
+      @keyframes finalScene {
+        0%,
+        86% {
+          opacity: 0;
+          transform: translateY(34px) scale(0.99);
+        }
+        90%,
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes footerPresence {
+        0%,
+        85% {
+          opacity: 0.72;
+        }
+        90%,
+        100% {
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage" aria-label="Integ brand video">
+      <div class="float-cards" aria-hidden="true">
+        <div class="ui-card card-a"></div>
+        <div class="ui-card card-b"></div>
+        <div class="ui-card card-c"></div>
+        <div class="ui-card card-d"></div>
+      </div>
+
+      <section class="copy">
+        <h1 class="headline scene-one">Most agencies don&rsquo;t need more leads.</h1>
+        <h1 class="headline scene-two">They need a system.</h1>
+      </section>
+
+      <section class="workflow" aria-label="Target to calls workflow">
+        <div class="workflow-row">
+          <div class="workflow-step"><span>Target</span><span class="arrow">&rarr;</span></div>
+          <div class="workflow-step"><span>List</span><span class="arrow">&rarr;</span></div>
+          <div class="workflow-step"><span>Outreach</span><span class="arrow">&rarr;</span></div>
+          <div class="workflow-step"><span>Replies</span><span class="arrow">&rarr;</span></div>
+          <div class="workflow-step"><span>Calls</span></div>
+        </div>
+      </section>
+
+      <section class="brand-scene">
+        <div class="brand-lockup">
+          <div class="mark">IN</div>
+          <p class="brand-line">Integ turns cold prospects into qualified sales conversations.</p>
+        </div>
+      </section>
+
+      <section class="pipeline" aria-label="AI-assisted. Human-reviewed.">
+        <div class="pipeline-track" aria-hidden="true">
+          <div class="pipeline-line"></div>
+          <div class="pipeline-card pipe-a"></div>
+          <div class="pipeline-card pipe-b"></div>
+          <div class="pipeline-card pipe-c"></div>
+          <div class="pipeline-card pipe-d"></div>
+        </div>
+        <div class="small-copy">AI-assisted. Human-reviewed.</div>
+      </section>
+
+      <section class="final">
+        <div class="mark">IN</div>
+        <h1>Integ</h1>
+        <p class="sub">Outbound systems for agencies.</p>
+        <p class="dm">DM &ldquo;PILOT&rdquo;</p>
+        <p class="url">integ-outbound.com</p>
+      </section>
+
+      <footer class="brand-foot">
+        <div class="mark">IN</div>
+        <span>integ-outbound.com</span>
+      </footer>
+    </main>
+
+    <script>
+      window.setRenderTime = async function setRenderTime(ms) {
+        const animations = document.getAnimations({ subtree: true });
+        for (const animation of animations) {
+          animation.pause();
+          animation.currentTime = ms;
+        }
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      };
+    </script>
+  </body>
+</html>
