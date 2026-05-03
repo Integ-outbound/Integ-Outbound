@@ -35,3 +35,39 @@ pixel format: yuv420p
 ```
 
 The preview HTML can also be opened directly in a browser for a quick visual check.
+
+## Integ workflow explainer
+
+The workflow explainer is a deterministic HTML/CSS animation rendered to MP4. It uses the same local browser plus FFmpeg render pipeline as the shorter brand video, but it is structured as a step-by-step product film. A blue/violet orb travels through each workflow stage and activates the matching visual node.
+
+Source files:
+
+```text
+assets/video/integ-workflow-explainer-preview.html
+scripts/render-integ-workflow-explainer.js
+```
+
+Generated output:
+
+```text
+assets/video/integ-workflow-explainer.mp4
+```
+
+Regenerate from the repository root:
+
+```bash
+node scripts/render-integ-workflow-explainer.js
+```
+
+Built-in validation:
+
+```text
+resolution: 1080x1920
+duration: 39 seconds
+codec: H.264 via FFmpeg
+pixel format: yuv420p
+```
+
+The preview HTML can be opened directly in a browser. To tweak copy or timing, edit the scene text, scene delays, `--duration`, and `DURATION_SECONDS` together so the browser preview and renderer stay in sync.
+
+Audio is not baked in. The animation is organized into clear scene beats so a soft ambient bed, orb pings, transition whooshes, activation thumps, or final reveal hit can be layered later in the final FFmpeg step.

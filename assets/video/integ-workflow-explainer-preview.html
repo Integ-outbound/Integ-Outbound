@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1080, initial-scale=1" />
+    <title>Integ workflow explainer</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --card: #111827;
+        --card-2: #151f31;
+        --violet: #6366f1;
+        --blue: #3b82f6;
+        --text: #f7f8fb;
+        --muted: #94a3b8;
+        --line: rgba(148, 163, 184, 0.22);
+        --line-strong: rgba(148, 163, 184, 0.34);
+        --duration: 39s;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1080px;
+        height: 1920px;
+        margin: 0;
+        overflow: hidden;
+        background: var(--bg);
+      }
+
+      body {
+        color: var(--text);
+        font-family: "Space Grotesk", "Segoe UI", Arial, sans-serif;
+      }
+
+      .stage {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 78% 84%, rgba(99, 102, 241, 0.2), transparent 32%),
+          radial-gradient(circle at 96% 70%, rgba(59, 130, 246, 0.13), transparent 30%),
+          linear-gradient(180deg, #0b1220 0%, #0d1424 100%);
+      }
+
+      .stage::before,
+      .stage::after {
+        content: "";
+        position: absolute;
+        border-radius: 999px;
+        filter: blur(78px);
+        pointer-events: none;
+      }
+
+      .stage::before {
+        width: 560px;
+        height: 560px;
+        right: -150px;
+        bottom: -80px;
+        background: rgba(99, 102, 241, 0.19);
+      }
+
+      .stage::after {
+        width: 500px;
+        height: 500px;
+        right: 80px;
+        bottom: 110px;
+        background: rgba(59, 130, 246, 0.13);
+      }
+
+      .network {
+        position: absolute;
+        inset: 0;
+        opacity: 0.58;
+        transform: translateY(0);
+        animation: parallax var(--duration) ease-in-out both;
+      }
+
+      .network-line {
+        position: absolute;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.35), transparent);
+        transform-origin: left center;
+      }
+
+      .line-a {
+        left: 190px;
+        top: 780px;
+        width: 650px;
+        transform: rotate(-14deg);
+      }
+
+      .line-b {
+        left: 164px;
+        top: 1010px;
+        width: 720px;
+        transform: rotate(10deg);
+      }
+
+      .line-c {
+        left: 260px;
+        top: 1230px;
+        width: 460px;
+        transform: rotate(-7deg);
+      }
+
+      .node-dot {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.28);
+        box-shadow: 0 0 28px rgba(99, 102, 241, 0.28);
+      }
+
+      .dot-1 { left: 206px; top: 738px; }
+      .dot-2 { left: 826px; top: 590px; }
+      .dot-3 { left: 168px; top: 1082px; }
+      .dot-4 { left: 842px; top: 1210px; }
+      .dot-5 { left: 462px; top: 1390px; }
+
+      .copy {
+        position: absolute;
+        left: 86px;
+        right: 86px;
+        top: 194px;
+        z-index: 20;
+        min-height: 330px;
+      }
+
+      .scene-copy {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        transform: translateY(24px);
+        animation: sceneFade 3.4s linear both;
+      }
+
+      .kicker {
+        margin: 0 0 24px;
+        color: var(--violet);
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 25px;
+        font-weight: 500;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      .scene-title {
+        color: var(--text);
+        font-size: 76px;
+        line-height: 0.96;
+        letter-spacing: -0.045em;
+        font-weight: 700;
+        max-width: 860px;
+      }
+
+      .scene-sub {
+        max-width: 780px;
+        margin-top: 34px;
+        color: var(--muted);
+        font-size: 38px;
+        line-height: 1.24;
+        font-weight: 500;
+      }
+
+      .visual {
+        position: absolute;
+        left: 90px;
+        right: 90px;
+        top: 650px;
+        height: 820px;
+        z-index: 12;
+      }
+
+      .scene-visual {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        transform: translateY(34px) scale(0.985);
+        animation: visualFade 3.4s linear both;
+      }
+
+      .glass-card,
+      .node-card,
+      .profile-card,
+      .company-card,
+      .message-card,
+      .reply-card,
+      .opportunity-card {
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+          rgba(17, 24, 39, 0.9);
+        box-shadow: 0 34px 100px rgba(2, 6, 23, 0.3);
+        backdrop-filter: blur(12px);
+      }
+
+      .intro-ring {
+        position: absolute;
+        left: 246px;
+        top: 106px;
+        width: 408px;
+        height: 408px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow:
+          inset 0 0 80px rgba(99, 102, 241, 0.08),
+          0 0 90px rgba(59, 130, 246, 0.1);
+      }
+
+      .intro-ring::before,
+      .intro-ring::after {
+        content: "";
+        position: absolute;
+        border-radius: inherit;
+        border: 1px solid rgba(99, 102, 241, 0.18);
+      }
+
+      .intro-ring::before {
+        inset: 78px;
+      }
+
+      .intro-ring::after {
+        inset: 148px;
+        background: rgba(99, 102, 241, 0.06);
+      }
+
+      .target-card {
+        position: absolute;
+        left: 214px;
+        top: 80px;
+        width: 472px;
+        height: 472px;
+        border-radius: 56px;
+        display: grid;
+        place-items: center;
+      }
+
+      .target-ring {
+        position: absolute;
+        border-radius: 999px;
+        border: 2px solid rgba(99, 102, 241, 0.38);
+      }
+
+      .target-ring.r1 { width: 276px; height: 276px; }
+      .target-ring.r2 { width: 188px; height: 188px; border-color: rgba(59, 130, 246, 0.34); }
+      .target-ring.r3 { width: 92px; height: 92px; border-color: rgba(247, 248, 251, 0.4); background: rgba(99, 102, 241, 0.08); }
+
+      .grid {
+        position: absolute;
+        left: 68px;
+        top: 80px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        width: 764px;
+      }
+
+      .company-card {
+        height: 142px;
+        border-radius: 30px;
+        padding: 28px;
+      }
+
+      .bar {
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.18);
+      }
+
+      .bar.short { width: 42%; }
+      .bar.mid { width: 66%; margin-top: 24px; }
+      .bar.long { width: 82%; margin-top: 20px; }
+
+      .contact-stack {
+        position: absolute;
+        left: 96px;
+        top: 90px;
+        width: 708px;
+        height: 520px;
+      }
+
+      .profile-card {
+        position: absolute;
+        width: 330px;
+        height: 220px;
+        border-radius: 34px;
+        padding: 30px;
+      }
+
+      .profile-card::before {
+        content: "";
+        display: block;
+        width: 64px;
+        height: 64px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.55), rgba(59, 130, 246, 0.35));
+        margin-bottom: 26px;
+      }
+
+      .profile-a { left: 0; top: 0; }
+      .profile-b { right: 0; top: 84px; }
+      .profile-c { left: 190px; bottom: 0; }
+
+      .verify-lane {
+        position: absolute;
+        left: 80px;
+        top: 100px;
+        display: grid;
+        gap: 22px;
+        width: 740px;
+      }
+
+      .verify-row {
+        position: relative;
+        height: 112px;
+        border-radius: 30px;
+        padding: 28px 94px 28px 28px;
+      }
+
+      .verify-row.bad {
+        opacity: 0.23;
+        filter: blur(0.2px);
+      }
+
+      .check {
+        position: absolute;
+        right: 28px;
+        top: 30px;
+        width: 52px;
+        height: 52px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: white;
+        background: linear-gradient(135deg, var(--violet), var(--blue));
+        font-size: 30px;
+        font-weight: 700;
+      }
+
+      .compose {
+        position: absolute;
+        left: 90px;
+        top: 78px;
+        width: 720px;
+        height: 560px;
+      }
+
+      .data-chip {
+        position: absolute;
+        width: 238px;
+        height: 96px;
+        border-radius: 28px;
+        border: 1px solid var(--line);
+        background: rgba(17, 24, 39, 0.9);
+      }
+
+      .chip-a { left: 0; top: 0; }
+      .chip-b { right: 0; top: 60px; }
+      .chip-c { left: 84px; bottom: 34px; }
+
+      .message-card {
+        position: absolute;
+        left: 160px;
+        top: 144px;
+        width: 420px;
+        height: 260px;
+        border-radius: 38px;
+        padding: 38px;
+      }
+
+      .message-line {
+        height: 14px;
+        border-radius: 999px;
+        background: rgba(247, 248, 251, 0.2);
+        margin-bottom: 24px;
+      }
+
+      .message-line:nth-child(2) { width: 76%; background: rgba(148, 163, 184, 0.18); }
+      .message-line:nth-child(3) { width: 88%; background: rgba(148, 163, 184, 0.16); }
+      .message-line:nth-child(4) { width: 52%; background: rgba(59, 130, 246, 0.2); }
+
+      .launch-node {
+        position: absolute;
+        left: 220px;
+        top: 72px;
+        width: 460px;
+        height: 460px;
+        border-radius: 58px;
+        display: grid;
+        place-items: center;
+      }
+
+      .mail-shape {
+        width: 250px;
+        height: 168px;
+        border-radius: 28px;
+        border: 2px solid rgba(148, 163, 184, 0.34);
+        position: relative;
+      }
+
+      .mail-shape::before,
+      .mail-shape::after {
+        content: "";
+        position: absolute;
+        top: 44px;
+        width: 136px;
+        height: 2px;
+        background: rgba(99, 102, 241, 0.55);
+      }
+
+      .mail-shape::before {
+        left: 20px;
+        transform: rotate(31deg);
+      }
+
+      .mail-shape::after {
+        right: 20px;
+        transform: rotate(-31deg);
+      }
+
+      .reply-stack {
+        position: absolute;
+        left: 90px;
+        top: 90px;
+        display: grid;
+        gap: 22px;
+        width: 720px;
+      }
+
+      .reply-card {
+        height: 128px;
+        border-radius: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 0 34px;
+        color: var(--text);
+        font-size: 36px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+
+      .followup-system {
+        position: absolute;
+        left: 120px;
+        top: 88px;
+        width: 660px;
+        height: 540px;
+      }
+
+      .follow-card {
+        position: absolute;
+        left: 112px;
+        top: 0;
+        width: 436px;
+        height: 166px;
+        border-radius: 34px;
+      }
+
+      .stop-line {
+        position: absolute;
+        left: 220px;
+        top: 238px;
+        width: 220px;
+        height: 220px;
+        border-radius: 999px;
+        border: 3px solid rgba(99, 102, 241, 0.55);
+      }
+
+      .stop-line::after {
+        content: "";
+        position: absolute;
+        left: 28px;
+        right: 28px;
+        top: 108px;
+        height: 4px;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.7);
+        transform: rotate(-32deg);
+      }
+
+      .review-flow {
+        position: absolute;
+        left: 70px;
+        top: 90px;
+        width: 760px;
+        height: 540px;
+      }
+
+      .conversation-card {
+        position: absolute;
+        left: 0;
+        top: 128px;
+        width: 320px;
+        height: 220px;
+        border-radius: 36px;
+      }
+
+      .opportunity-card {
+        position: absolute;
+        right: 0;
+        top: 82px;
+        width: 382px;
+        height: 310px;
+        border-radius: 42px;
+        border-color: rgba(99, 102, 241, 0.46);
+        box-shadow:
+          0 34px 100px rgba(2, 6, 23, 0.32),
+          0 0 80px rgba(99, 102, 241, 0.14);
+      }
+
+      .flow-line {
+        position: absolute;
+        left: 330px;
+        top: 238px;
+        width: 120px;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(99, 102, 241, 0), rgba(59, 130, 246, 0.9));
+      }
+
+      .final-card {
+        position: absolute;
+        left: 88px;
+        top: 0;
+        width: 724px;
+        height: 780px;
+        border-radius: 54px;
+        padding: 62px;
+      }
+
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 82px;
+        height: 82px;
+        border-radius: 26px;
+        border: 1px solid var(--line-strong);
+        background: linear-gradient(180deg, rgba(99, 102, 241, 0.26), rgba(99, 102, 241, 0.08));
+        color: var(--text);
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 28px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+      }
+
+      .final-card h2 {
+        margin-top: 46px;
+        color: var(--text);
+        font-size: 104px;
+        line-height: 0.92;
+        letter-spacing: -0.055em;
+        font-weight: 700;
+      }
+
+      .final-main {
+        margin-top: 28px;
+        color: var(--text);
+        font-size: 54px;
+        line-height: 1.12;
+        letter-spacing: -0.035em;
+        font-weight: 700;
+      }
+
+      .final-sub {
+        margin-top: 34px;
+        color: var(--muted);
+        font-size: 34px;
+        line-height: 1.28;
+        font-weight: 500;
+      }
+
+      .final-cta {
+        margin-top: 46px;
+        color: var(--text);
+        font-size: 48px;
+        letter-spacing: -0.03em;
+        font-weight: 700;
+      }
+
+      .final-footer {
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 30px;
+        font-weight: 500;
+      }
+
+      .orb,
+      .orb-trail {
+        position: absolute;
+        z-index: 30;
+        left: 0;
+        top: 0;
+        width: 46px;
+        height: 46px;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle at 34% 28%, white 0 8%, rgba(247, 248, 251, 0.9) 9% 14%, transparent 15%),
+          radial-gradient(circle at 50% 50%, #a5b4fc 0, #6366f1 42%, #3b82f6 70%, rgba(59, 130, 246, 0) 72%);
+        box-shadow:
+          0 0 34px rgba(59, 130, 246, 0.9),
+          0 0 72px rgba(99, 102, 241, 0.62),
+          0 0 126px rgba(59, 130, 246, 0.28);
+        transform: translate(-50%, -50%);
+        animation: orbPath var(--duration) cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      .orb::after {
+        content: "";
+        position: absolute;
+        inset: -20px;
+        border-radius: inherit;
+        border: 1px solid rgba(99, 102, 241, 0.28);
+      }
+
+      .orb-trail {
+        z-index: 29;
+        width: 84px;
+        height: 84px;
+        opacity: 0.18;
+        filter: blur(12px);
+        animation-name: orbPath;
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .activate {
+        animation: activatePulse var(--duration) linear both;
+      }
+
+      .s0 { animation-delay: 0s; }
+      .s1 { animation-delay: 0s; }
+      .s2 { animation-delay: 0s; }
+      .s3 { animation-delay: 0s; }
+      .s4 { animation-delay: 0s; }
+      .s5 { animation-delay: 0s; }
+      .s6 { animation-delay: 0s; }
+      .s7 { animation-delay: 0s; }
+      .s8 { animation-delay: 0s; }
+      .s9 { animation-delay: 0s; }
+      .s10 { animation-delay: 0s; }
+
+      @keyframes sceneFade {
+        0%, 100% { opacity: 0; transform: translateY(24px); }
+        14%, 82% { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes visualFade {
+        0%, 100% { opacity: 0; transform: translateY(34px) scale(0.985); }
+        16%, 86% { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      @keyframes finalVisual {
+        0% { opacity: 0; transform: translateY(34px) scale(0.985); }
+        16%, 100% { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      @keyframes parallax {
+        0% { transform: translateY(0) scale(1); }
+        50% { transform: translateY(-34px) scale(1.025); }
+        100% { transform: translateY(-12px) scale(1.01); }
+      }
+
+      @keyframes activatePulse {
+        0%, 100% {
+          border-color: var(--line);
+          box-shadow: 0 34px 100px rgba(2, 6, 23, 0.3);
+        }
+        6%, 8% {
+          border-color: rgba(99, 102, 241, 0.62);
+          box-shadow:
+            0 34px 100px rgba(2, 6, 23, 0.34),
+            0 0 92px rgba(99, 102, 241, 0.18);
+        }
+      }
+
+      @keyframes orbPath {
+        0% { transform: translate(540px, 988px) scale(0); opacity: 0; }
+        3% { transform: translate(540px, 988px) scale(1); opacity: 1; }
+        9.4% { transform: translate(540px, 988px) scale(1); opacity: 1; }
+        10.4% { transform: translate(540px, 1032px) scale(0.96); opacity: 1; }
+        17.9% { transform: translate(540px, 1032px) scale(1); opacity: 1; }
+        18.9% { transform: translate(282px, 948px) scale(0.96); opacity: 1; }
+        26.9% { transform: translate(742px, 1190px) scale(1); opacity: 1; }
+        27.9% { transform: translate(248px, 910px) scale(0.96); opacity: 1; }
+        35.9% { transform: translate(694px, 1224px) scale(1); opacity: 1; }
+        36.9% { transform: translate(724px, 894px) scale(0.96); opacity: 1; }
+        44.9% { transform: translate(338px, 1216px) scale(1); opacity: 1; }
+        45.9% { transform: translate(312px, 950px) scale(0.96); opacity: 1; }
+        53.8% { transform: translate(704px, 1072px) scale(1); opacity: 1; }
+        54.8% { transform: translate(540px, 1032px) scale(0.96); opacity: 1; }
+        62.8% { transform: translate(540px, 1032px) scale(1); opacity: 1; }
+        63.8% { transform: translate(332px, 944px) scale(0.96); opacity: 1; }
+        71.8% { transform: translate(722px, 1218px) scale(1); opacity: 1; }
+        72.8% { transform: translate(548px, 1098px) scale(0.96); opacity: 1; }
+        80.8% { transform: translate(548px, 1098px) scale(1); opacity: 1; }
+        81.8% { transform: translate(308px, 1012px) scale(0.96); opacity: 1; }
+        89.7% { transform: translate(732px, 978px) scale(1); opacity: 1; }
+        90.7% { transform: translate(450px, 856px) scale(0.96); opacity: 1; }
+        96% { transform: translate(450px, 856px) scale(1); opacity: 1; }
+        100% { transform: translate(450px, 856px) scale(1); opacity: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage" aria-label="Integ workflow explainer">
+      <div class="network" aria-hidden="true">
+        <div class="network-line line-a"></div>
+        <div class="network-line line-b"></div>
+        <div class="network-line line-c"></div>
+        <div class="node-dot dot-1"></div>
+        <div class="node-dot dot-2"></div>
+        <div class="node-dot dot-3"></div>
+        <div class="node-dot dot-4"></div>
+        <div class="node-dot dot-5"></div>
+      </div>
+
+      <section class="copy">
+        <article class="scene-copy s0" style="animation-delay: 0s"><h1 class="scene-title">How Integ works</h1><p class="scene-sub">From targeting to qualified sales conversations.</p></article>
+        <article class="scene-copy s1" style="animation-delay: 4s"><h2 class="scene-title">1. Define the ICP</h2><p class="scene-sub">Choose exactly who you want to reach.</p></article>
+        <article class="scene-copy s2" style="animation-delay: 7.2s"><h2 class="scene-title">2. Source target companies</h2><p class="scene-sub">Build a focused company universe worth contacting.</p></article>
+        <article class="scene-copy s3" style="animation-delay: 10.6s"><h2 class="scene-title">3. Find decision-makers</h2><p class="scene-sub">Surface relevant buyers at each account.</p></article>
+        <article class="scene-copy s4" style="animation-delay: 14s"><h2 class="scene-title">4. Verify contact quality</h2><p class="scene-sub">Only usable contact data moves forward.</p></article>
+        <article class="scene-copy s5" style="animation-delay: 17.4s"><h2 class="scene-title">5. Generate personalized outreach</h2><p class="scene-sub">Create account-relevant messaging, not generic spam.</p></article>
+        <article class="scene-copy s6" style="animation-delay: 20.8s"><h2 class="scene-title">6. Launch the campaign</h2><p class="scene-sub">Send through controlled live inboxes.</p></article>
+        <article class="scene-copy s7" style="animation-delay: 24.2s"><h2 class="scene-title">7. Sync and understand replies</h2><p class="scene-sub">Replies are captured, matched, and classified.</p></article>
+        <article class="scene-copy s8" style="animation-delay: 27.6s"><h2 class="scene-title">8. Stop or adapt follow-ups</h2><p class="scene-sub">The system reacts to intent instead of sending blindly.</p></article>
+        <article class="scene-copy s9" style="animation-delay: 31s"><h2 class="scene-title">9. Surface real opportunities</h2><p class="scene-sub">Qualified conversations move to review.</p></article>
+      </section>
+
+      <section class="visual">
+        <div class="scene-visual" style="animation-delay: 0s"><div class="intro-ring"></div></div>
+
+        <div class="scene-visual" style="animation-delay: 4s">
+          <div class="glass-card target-card activate">
+            <div class="target-ring r1"></div>
+            <div class="target-ring r2"></div>
+            <div class="target-ring r3"></div>
+          </div>
+        </div>
+
+        <div class="scene-visual" style="animation-delay: 7.2s">
+          <div class="grid">
+            <div class="company-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+            <div class="company-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+            <div class="company-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+            <div class="company-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+            <div class="company-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+            <div class="company-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+            <div class="company-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+            <div class="company-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+            <div class="company-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+          </div>
+        </div>
+
+        <div class="scene-visual" style="animation-delay: 10.6s">
+          <div class="contact-stack">
+            <div class="profile-card profile-a"><div class="bar short"></div><div class="bar mid"></div></div>
+            <div class="profile-card profile-b"><div class="bar short"></div><div class="bar mid"></div></div>
+            <div class="profile-card profile-c"><div class="bar short"></div><div class="bar mid"></div></div>
+          </div>
+        </div>
+
+        <div class="scene-visual" style="animation-delay: 14s">
+          <div class="verify-lane">
+            <div class="glass-card verify-row"><div class="bar short"></div><div class="bar long"></div><div class="check">✓</div></div>
+            <div class="glass-card verify-row bad"><div class="bar short"></div><div class="bar long"></div></div>
+            <div class="glass-card verify-row"><div class="bar short"></div><div class="bar long"></div><div class="check">✓</div></div>
+            <div class="glass-card verify-row bad"><div class="bar short"></div><div class="bar long"></div></div>
+          </div>
+        </div>
+
+        <div class="scene-visual" style="animation-delay: 17.4s">
+          <div class="compose">
+            <div class="data-chip chip-a"></div>
+            <div class="data-chip chip-b"></div>
+            <div class="data-chip chip-c"></div>
+            <div class="message-card">
+              <div class="message-line"></div>
+              <div class="message-line"></div>
+              <div class="message-line"></div>
+              <div class="message-line"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="scene-visual" style="animation-delay: 20.8s">
+          <div class="glass-card launch-node"><div class="mail-shape"></div></div>
+        </div>
+
+        <div class="scene-visual" style="animation-delay: 24.2s">
+          <div class="reply-stack">
+            <div class="reply-card"><span>positive</span></div>
+            <div class="reply-card"><span>question</span></div>
+            <div class="reply-card"><span>not interested</span></div>
+          </div>
+        </div>
+
+        <div class="scene-visual" style="animation-delay: 27.6s">
+          <div class="followup-system">
+            <div class="glass-card follow-card"><div class="bar short"></div><div class="bar long"></div></div>
+            <div class="stop-line"></div>
+          </div>
+        </div>
+
+        <div class="scene-visual" style="animation-delay: 31s">
+          <div class="review-flow">
+            <div class="glass-card conversation-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+            <div class="flow-line"></div>
+            <div class="opportunity-card"><div class="bar short"></div><div class="bar mid"></div><div class="bar long"></div></div>
+          </div>
+        </div>
+
+        <div class="scene-visual" style="animation-delay: 34.8s; animation-duration: 4.2s; animation-name: finalVisual">
+          <div class="glass-card final-card">
+            <div class="brand-mark">IN</div>
+            <h2>Integ</h2>
+            <p class="final-main">Outbound systems for agencies.</p>
+            <p class="final-sub">More qualified sales conversations. Less manual outbound chaos.</p>
+            <p class="final-cta">DM &lsquo;PILOT&rsquo;</p>
+            <p class="final-footer">integ-outbound.com</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="orb-trail" aria-hidden="true"></div>
+      <div class="orb" aria-hidden="true"></div>
+    </main>
+
+    <script>
+      window.setRenderTime = async function setRenderTime(ms) {
+        const animations = document.getAnimations({ subtree: true });
+        for (const animation of animations) {
+          animation.pause();
+          animation.currentTime = ms;
+        }
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      };
+    </script>
+  </body>
+</html>
