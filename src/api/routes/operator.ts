@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { asyncHandler, parseWithSchema } from '../utils';
 import {
+  getOperatorCampaigns,
   getOperatorClientStatuses,
   getOperatorPilotRequests,
   getOperatorReviewQueues,
@@ -41,6 +42,15 @@ router.get(
       query.reply_limit ?? 25
     );
     res.status(200).json(review);
+  })
+);
+
+router.get(
+  '/operator/campaigns',
+  asyncHandler(async (req, res) => {
+    const query = parseWithSchema(statusQuerySchema, req.query, 'Invalid operator campaign query.');
+    const campaigns = await getOperatorCampaigns(query.client_id);
+    res.status(200).json(campaigns);
   })
 );
 

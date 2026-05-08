@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 const baseUrl = (process.env.READINESS_BASE_URL ?? 'http://127.0.0.1:3000/api/v1').replace(/\/$/, '');
 const apiKey = process.env.INTERNAL_API_KEY;
 

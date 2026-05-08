@@ -1,4 +1,5 @@
 import { query } from '../../db/client';
+import { Campaign, Client } from '../../db/types';
 import { ensureClientExists, getClientOnboardingStatus, listClients } from '../clients/service';
 import { appendClientScope } from '../clients/scope';
 import { listMailboxes } from '../mailboxes/operations';
@@ -124,6 +125,80 @@ export async function getOperatorPilotRequests(): Promise<{
 }> {
   const requests = await listPilotRequests({ limit: 100 });
   return { requests };
+}
+
+export async function getOperatorCampaigns(clientId?: string): Promise<{
+  client_id: string | null;
+  campaigns: Array<Campaign & {
+    client: Pick<Client, 'id' | 'name' | 'company_domain' | 'operator_email'>;
+    lead_status_counts: Record<string, number>;
+    sent_today: number;
+    failed_send_attempts: number;
+  }>;
+}> {
+  if (clientId) {
+    await ensureClientExists(clientId);
+  }
+
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  appendClientScope(conditions, params, 'c.client_id', clientId);
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const result = await query<Campaign & {
+    client: Pick<Client, 'id' | 'name' | 'company_domain' | 'operator_email'>;
+    lead_status_counts: Record<string, number> | null;
+    sent_today: string;
+    failed_send_attempts: string;
+  }>(
+    `
+      SELECT
+        c.*,
+        jsonb_build_object(
+          'id', cl.id,
+          'name', cl.name,
+          'company_domain', cl.company_domain,
+          'operator_email', cl.operator_email
+        ) AS client,
+        COALESCE(lead_counts.counts, '{}'::jsonb) AS lead_status_counts,
+        COALESCE(send_counts.sent_today, '0') AS sent_today,
+        COALESCE(send_counts.failed_send_attempts, '0') AS failed_send_attempts
+      FROM campaigns c
+      INNER JOIN clients cl ON cl.id = c.client_id
+      LEFT JOIN LATERAL (
+        SELECT jsonb_object_agg(status, count) AS counts
+        FROM (
+          SELECT status, COUNT(*)::int AS count
+          FROM leads
+          WHERE campaign_id = c.id
+          GROUP BY status
+        ) grouped_counts
+      ) lead_counts ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) FILTER (
+            WHERE status = 'sent'
+              AND timezone('UTC', attempted_at)::date = timezone('UTC', NOW())::date
+          )::text AS sent_today,
+          COUNT(*) FILTER (WHERE status = 'failed')::text AS failed_send_attempts
+        FROM mailbox_send_attempts
+        WHERE campaign_id = c.id
+      ) send_counts ON true
+      ${whereClause}
+      ORDER BY c.created_at DESC
+    `,
+    params
+  );
+
+  return {
+    client_id: clientId ?? null,
+    campaigns: result.rows.map((campaign) => ({
+      ...campaign,
+      lead_status_counts: campaign.lead_status_counts ?? {},
+      sent_today: Number(campaign.sent_today ?? 0),
+      failed_send_attempts: Number(campaign.failed_send_attempts ?? 0)
+    }))
+  };
 }
 
 export async function getOperatorSafety(clientId?: string): Promise<{

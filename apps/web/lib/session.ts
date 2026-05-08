@@ -146,3 +146,23 @@ export function matchesInternalApiKey(providedKey: string): boolean {
   const provided = createHash('sha256').update(providedKey).digest();
   return expected.length === provided.length && timingSafeEqual(expected, provided);
 }
+
+export function matchesOperatorCredentials(username: string, password: string): boolean {
+  const expectedUsername = process.env.OPERATOR_USERNAME?.trim();
+  const expectedPassword = process.env.OPERATOR_PASSWORD?.trim();
+  if (!username || !password) {
+    return false;
+  }
+
+  if (!expectedUsername || !expectedPassword) {
+    return false;
+  }
+
+  const expected = createHash('sha256')
+    .update(`${expectedUsername}\0${expectedPassword}`)
+    .digest();
+  const provided = createHash('sha256')
+    .update(`${username.trim()}\0${password}`)
+    .digest();
+  return expected.length === provided.length && timingSafeEqual(expected, provided);
+}

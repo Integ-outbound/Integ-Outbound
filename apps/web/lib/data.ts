@@ -6,6 +6,7 @@ import type {
   ClientOnboardingStatus,
   MailboxStatusView,
   OperatorClientStatuses,
+  OperatorCampaigns,
   OperatorManualTouches,
   OperatorPilotRequests,
   OperatorReviewQueues,
@@ -42,6 +43,11 @@ export async function getOperatorSafety(clientId?: string): Promise<OperatorSafe
 
 export async function getOperatorClientStatuses(): Promise<OperatorClientStatuses> {
   return fetchBackendJson<OperatorClientStatuses>('/api/v1/operator/clients');
+}
+
+export async function getOperatorCampaigns(clientId?: string): Promise<OperatorCampaigns> {
+  const suffix = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  return fetchBackendJson<OperatorCampaigns>(`/api/v1/operator/campaigns${suffix}`);
 }
 
 export async function getOperatorPilotRequests(): Promise<OperatorPilotRequests> {

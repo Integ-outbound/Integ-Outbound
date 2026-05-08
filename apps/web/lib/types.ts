@@ -44,6 +44,22 @@ export interface ManualTouch {
   updated_at: string;
 }
 
+export interface Campaign {
+  id: string;
+  client_id: string;
+  name: string;
+  angle: string;
+  persona: string;
+  icp_target: Record<string, unknown>;
+  sequence_steps: number;
+  sequence_delay_days: number;
+  daily_send_limit: number | null;
+  status: 'draft' | 'active' | 'paused' | 'archived';
+  prompt_version: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MailboxStatusView {
   id: string;
   client_id: string;
@@ -137,4 +153,16 @@ export interface OperatorPilotRequests {
 
 export interface OperatorManualTouches {
   manual_touches: ManualTouch[];
+}
+
+export interface OperatorCampaigns {
+  client_id: string | null;
+  campaigns: Array<
+    Campaign & {
+      client: Pick<Client, 'id' | 'name' | 'company_domain' | 'operator_email'>;
+      lead_status_counts: Record<string, number>;
+      sent_today: number;
+      failed_send_attempts: number;
+    }
+  >;
 }

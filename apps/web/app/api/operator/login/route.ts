@@ -1,14 +1,20 @@
 import { NextResponse } from 'next/server';
 
-import { matchesInternalApiKey, setOperatorSessionCookie } from '@/lib/session';
+import {
+  matchesInternalApiKey,
+  matchesOperatorCredentials,
+  setOperatorSessionCookie
+} from '@/lib/session';
 
 export async function POST(request: Request) {
   const formData = await request.formData();
   const apiKey = String(formData.get('api_key') ?? '');
+  const username = String(formData.get('username') ?? '');
+  const password = String(formData.get('password') ?? '');
 
-  if (!matchesInternalApiKey(apiKey)) {
+  if (!matchesOperatorCredentials(username, password) && !matchesInternalApiKey(apiKey)) {
     return NextResponse.redirect(
-      new URL('/operator/login?error=Invalid%20internal%20API%20key', request.url),
+      new URL('/operator/login?error=Invalid%20operator%20credentials', request.url),
       303
     );
   }

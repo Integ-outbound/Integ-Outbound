@@ -10,7 +10,8 @@ function getBackendBaseUrl(): string {
     throw new Error('BACKEND_API_URL is required for the frontend server.');
   }
 
-  return value.replace(/\/+$/, '');
+  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  return withProtocol.replace(/\/+$/, '');
 }
 
 function getInternalApiKey(): string {

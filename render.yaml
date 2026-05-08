@@ -7,7 +7,7 @@ databases:
 services:
   - type: web
     name: integ-api
-    env: node
+    runtime: node
     plan: starter
     buildCommand: npm ci --include=dev && npm run build:api
     startCommand: npm start
@@ -44,7 +44,7 @@ services:
 
   - type: worker
     name: integ-worker
-    env: node
+    runtime: node
     plan: starter
     buildCommand: npm ci --include=dev && npm run build:api
     startCommand: npm run worker:prod
@@ -75,5 +75,30 @@ services:
         sync: false
       - key: START_WORKER
         value: "true"
+      - key: NODE_ENV
+        value: production
+
+  - type: web
+    name: integ-web
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --include=dev && npm run build:web
+    startCommand: npm run start:web
+    envVars:
+      - key: BACKEND_API_URL
+        fromService:
+          name: integ-api
+          type: web
+          property: host
+      - key: INTERNAL_API_KEY
+        sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false
+      - key: FRONTEND_SESSION_SECRET
+        generateValue: true
+      - key: OPERATOR_USERNAME
+        sync: false
+      - key: OPERATOR_PASSWORD
+        sync: false
       - key: NODE_ENV
         value: production
